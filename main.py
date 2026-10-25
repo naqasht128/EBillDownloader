@@ -356,6 +356,53 @@ class UpdateInfo:
         self.release_notes = release_notes
 
 
+def clean_release_notes(raw_notes: str) -> str:
+    """Sanitizes release notes to ensure end-users only see descriptions of what has changed.
+    Strictly removes GitHub repository links, comparison links, PR references, and empty headings.
+    Returns cleaned description text, or empty string "" if no descriptions exist.
+    """
+    if not raw_notes or not isinstance(raw_notes, str):
+        return ""
+
+    lines = raw_notes.replace("\r\n", "\n").split("\n")
+    cleaned_lines = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Skip automated GitHub comparison footer lines (e.g. **Full Changelog**: ...)
+        if "full changelog" in stripped.lower():
+            continue
+
+        # Strip GitHub repository references, PR links, and commit comparisons
+        if "github.com" in stripped.lower():
+            stripped = re.sub(r"\s*in\s+https?://github\.com\S+", "", stripped, flags=re.IGNORECASE)
+            stripped = re.sub(r"\[([^\]]+)\]\(https?://github\.com[^\)]*\)", r"\1", stripped, flags=re.IGNORECASE)
+            stripped = re.sub(r"https?://github\.com\S*", "", stripped, flags=re.IGNORECASE)
+            stripped = re.sub(r"\s*by\s+@[\w-]+", "", stripped, flags=re.IGNORECASE)
+            stripped = stripped.strip()
+
+        # Strip any other raw URLs
+        stripped = re.sub(r"https?://\S+", "", stripped).strip()
+
+        # Clean markdown headers like '## What's Changed'
+        if stripped.startswith("#"):
+            header_text = stripped.lstrip("#").strip()
+            if header_text.lower() in ("what's changed", "whats changed", "changelog", "release notes", "updates"):
+                continue
+            stripped = header_text
+
+        # Skip empty lines or lone bullet marks left after link removal
+        if not stripped or stripped in ("*", "-", "•", ":", "- :"):
+            continue
+
+        cleaned_lines.append(stripped)
+
+    return "\n".join(cleaned_lines).strip()
+
+
 def check_for_updates(current_version: str = APP_VERSION) -> UpdateInfo | None:
     # 1. Primary: Query Vercel Licensing & Updates Backend
     try:
@@ -381,7 +428,7 @@ def check_for_updates(current_version: str = APP_VERSION) -> UpdateInfo | None:
                         download_url=download_url,
                         file_name=file_name,
                         file_size=data.get("file_size", 0),
-                        release_notes=data.get("release_notes", ""),
+                        release_notes=clean_release_notes(data.get("release_notes", "")),
                     )
     except Exception:
         pass
@@ -430,7 +477,7 @@ def check_for_updates(current_version: str = APP_VERSION) -> UpdateInfo | None:
                         download_url=selected_asset.get("browser_download_url", ""),
                         file_name=selected_asset.get("name", "EBillDownloader-Setup.exe"),
                         file_size=selected_asset.get("size", 0),
-                        release_notes=data.get("body", "New update available with performance enhancements."),
+                        release_notes=clean_release_notes(data.get("body", "")),
                     )
     except Exception:
         pass
@@ -485,9 +532,15 @@ class UpdateDialog(tk.Toplevel):
         self.title("Software Update Available")
         self.configure(bg=BG_DARK)
         self.resizable(False, False)
-        self.transient(parent)
+        if parent and parent.state() != "withdrawn":
+            try:
+                self.transient(parent)
+            except Exception:
+                pass
 
-        w, h = 500, 380
+        notes = (self.update_info.release_notes or "").strip()
+        w = 500
+        h = 380 if notes else 230
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
         px = max(0, (sw - w) // 2)
@@ -509,15 +562,17 @@ class UpdateDialog(tk.Toplevel):
             style="Sub.TLabel"
         ).pack(anchor="w", pady=(2, 12))
 
-        # Notes Card
-        notes_card = ttk.Frame(container, style="Card.TFrame", padding=(12, 10))
-        notes_card.pack(fill="both", expand=True, pady=(0, 12))
+        # Notes Card (only shown if a clean change description exists)
+        notes = (self.update_info.release_notes or "").strip()
+        if notes:
+            notes_card = ttk.Frame(container, style="Card.TFrame", padding=(12, 10))
+            notes_card.pack(fill="both", expand=True, pady=(0, 12))
 
-        ttk.Label(notes_card, text="RELEASE NOTES", style="CardTitle.TLabel", font=(UI_FONT, 9, "bold")).pack(anchor="w", pady=(0, 4))
-        text_box = tk.Text(notes_card, bg=INPUT_BG, fg=TEXT_WHITE, relief="flat", wrap="word", height=6, font=(UI_FONT, 9))
-        text_box.insert("1.0", self.update_info.release_notes or "Performance improvements and bug fixes.")
-        text_box.configure(state="disabled")
-        text_box.pack(fill="both", expand=True)
+            ttk.Label(notes_card, text="RELEASE NOTES", style="CardTitle.TLabel", font=(UI_FONT, 9, "bold")).pack(anchor="w", pady=(0, 4))
+            text_box = tk.Text(notes_card, bg=INPUT_BG, fg=TEXT_WHITE, relief="flat", wrap="word", height=6, font=(UI_FONT, 9))
+            text_box.insert("1.0", notes)
+            text_box.configure(state="disabled")
+            text_box.pack(fill="both", expand=True)
 
         # Progress
         self.prog_var = tk.DoubleVar(value=0.0)

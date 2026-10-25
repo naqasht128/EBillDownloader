@@ -58,6 +58,8 @@ node_modules/
 generate_key.exe
 generate_key.py
 generate_key.spec
+keys.py
+/keys.py
 
 # Confidential Architectural Blueprint
 BLUEPRINT.md

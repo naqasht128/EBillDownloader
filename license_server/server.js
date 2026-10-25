@@ -340,6 +340,48 @@ app.post('/api/admin/generate', async (req, res) => {
 const GITHUB_REPO = process.env.GITHUB_REPO || 'naqasht128/EBillDownloader';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 
+function cleanReleaseNotes(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  const cleaned = [];
+
+  for (let line of lines) {
+    let trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Skip automated GitHub comparison footer lines (e.g. **Full Changelog**: ...)
+    if (/full changelog/i.test(trimmed)) continue;
+
+    // Strip GitHub repository links, comparison URLs, and PR references
+    if (/github\.com/i.test(trimmed)) {
+      trimmed = trimmed
+        .replace(/\s*in\s+https?:\/\/github\.com\S+/gi, '')
+        .replace(/\[([^\]]+)\]\(https?:\/\/github\.com[^\)]*\)/gi, '$1')
+        .replace(/https?:\/\/github\.com\S*/gi, '')
+        .replace(/\s*by\s+@[\w-]+/gi, '')
+        .trim();
+    }
+
+    // Strip any remaining raw URLs
+    trimmed = trimmed.replace(/https?:\/\/\S+/gi, '').trim();
+
+    // Clean markdown headings
+    if (trimmed.startsWith('#')) {
+      const headerText = trimmed.replace(/^#+\s*/, '').trim();
+      if (/^(what's changed|whats changed|changelog|release notes|updates)$/i.test(headerText)) {
+        continue;
+      }
+      trimmed = headerText;
+    }
+
+    if (!trimmed || /^[\*\-•:\s]+$/.test(trimmed)) continue;
+
+    cleaned.push(trimmed);
+  }
+
+  return cleaned.join('\n').trim();
+}
+
 app.get('/api/updates/latest', async (req, res) => {
   try {
     try {
@@ -384,7 +426,7 @@ app.get('/api/updates/latest', async (req, res) => {
             file_name: setupAsset.name,
             file_size: setupAsset.size || 0,
             download_url: dlUrl,
-            release_notes: data.body || 'New update available with performance enhancements.'
+            release_notes: cleanReleaseNotes(data.body)
           });
         }
       }
@@ -407,7 +449,7 @@ app.get('/api/updates/latest', async (req, res) => {
           file_name: updateRecord.file_name || 'EBillDownloader-Setup.exe',
           file_size: updateRecord.file_size || 0,
           download_url: updateRecord.download_url,
-          release_notes: updateRecord.release_notes || 'New update available.'
+          release_notes: cleanReleaseNotes(updateRecord.release_notes)
         });
       }
     } catch (dbErr) {
@@ -420,7 +462,7 @@ app.get('/api/updates/latest', async (req, res) => {
       version: fallbackVersion,
       file_name: 'EBillDownloader-Setup.exe',
       download_url: fallbackUrl,
-      release_notes: 'Latest version of E-Bill Downloader.'
+      release_notes: cleanReleaseNotes(process.env.LATEST_RELEASE_NOTES || '')
     });
 
   } catch (err) {
