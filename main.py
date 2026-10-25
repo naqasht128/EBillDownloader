@@ -40,7 +40,7 @@ from openpyxl import load_workbook
 # ──────────────────────────────────────────────────────────────
 APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
-APP_VERSION = "1.0.6"
+APP_VERSION = "1.0.7"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
 LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
@@ -1716,8 +1716,12 @@ class EBillDownloaderApp(tk.Tk):
             state="readonly",
         )
         entry_excel.pack(side="left", fill="x", expand=True, padx=(4, 6), ipady=2)
+
+        btn_excel_box = ttk.Frame(r1, style="Card.TFrame")
+        btn_excel_box.pack(side="right")
+
         tk.Button(
-            r1,
+            btn_excel_box,
             text="Browse...",
             bg=BTN_SEC_BG,
             fg=TEXT_MAIN,
@@ -1726,9 +1730,23 @@ class EBillDownloaderApp(tk.Tk):
             font=(UI_FONT, 9),
             cursor="hand2",
             command=self._browse_excel,
-            padx=12,
+            padx=10,
             pady=2,
-        ).pack(side="right")
+        ).pack(side="left", padx=(0, 6))
+
+        tk.Button(
+            btn_excel_box,
+            text="Template",
+            bg=BTN_SEC_BG,
+            fg=TEXT_MAIN,
+            activebackground=BTN_SEC_HOVER,
+            relief="flat",
+            font=(UI_FONT, 9),
+            cursor="hand2",
+            command=self._download_template,
+            padx=10,
+            pady=2,
+        ).pack(side="left")
 
         # 2. Bills URL
         r2 = ttk.Frame(inputs_card, style="Card.TFrame")
@@ -1948,6 +1966,81 @@ class EBillDownloaderApp(tk.Tk):
         if hasattr(self, "btn_save_url"):
             self.btn_save_url.configure(text="✔ Saved", bg="#2ea043")
             self.after(1500, lambda: self.btn_save_url.configure(text="Save", bg=ACCENT_GREEN) if self.winfo_exists() and self.btn_save_url.winfo_exists() else None)
+
+    def _download_template(self):
+        default_name = "EBill_Sample_Template.xlsx"
+        desktop_dir = os.path.join(os.environ.get("USERPROFILE", "C:"), "Desktop")
+        dest_path = filedialog.asksaveasfilename(
+            parent=self,
+            title="Save Excel Template",
+            initialfile=default_name,
+            initialdir=desktop_dir if os.path.exists(desktop_dir) else None,
+            defaultextension=".xlsx",
+            filetypes=[("Excel Workbook (*.xlsx)", "*.xlsx"), ("All Files (*.*)", "*.*")],
+        )
+        if not dest_path:
+            return
+
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Bill Accounts"
+
+            headers = ["Account Number", "Sr No", "Status"]
+            ws.append(headers)
+
+            # Styling header
+            header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+            header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+            header_align = Alignment(horizontal="center", vertical="center")
+
+            for col_num in range(1, 4):
+                cell = ws.cell(row=1, column=col_num)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_align
+
+            # Sample rows for user guidance
+            samples = [
+                ("01234567890123", 1, ""),
+                ("01234567890124", 2, ""),
+                ("01234567890125", 3, ""),
+            ]
+            for row in samples:
+                ws.append(list(row))
+
+            for r in range(2, 5):
+                ws.cell(row=r, column=1).number_format = "@"
+                ws.cell(row=r, column=1).alignment = Alignment(horizontal="left")
+                ws.cell(row=r, column=2).alignment = Alignment(horizontal="center")
+
+            ws.column_dimensions["A"].width = 24
+            ws.column_dimensions["B"].width = 12
+            ws.column_dimensions["C"].width = 18
+
+            wb.save(dest_path)
+            self.excel_var.set(dest_path)
+            save_app_config({"last_excel": dest_path})
+            self.status_var.set(f"Excel template saved: {os.path.basename(dest_path)}")
+
+            ans = messagebox.askyesno(
+                "Template Saved",
+                f"Excel template generated successfully!\n\n"
+                f"Saved to: {dest_path}\n\n"
+                f"It has been selected as your active Excel input file.\n"
+                f"Would you like to open it now in Excel?",
+                parent=self
+            )
+            if ans:
+                try:
+                    os.startfile(dest_path)
+                except Exception:
+                    pass
+        except Exception as e:
+            messagebox.showerror("Export Failed", f"Failed to generate template:\n{e}", parent=self)
 
     def _browse_excel(self):
         path = filedialog.askopenfilename(

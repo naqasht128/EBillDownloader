@@ -1,1 +1,1 @@
-• Fix selenium ChromeOptions hiddenimport in PyInstaller, remove 'if needed' from subtitle, reduce checkbox font
+• Add Download Excel Template button with styled sample workbook generation
