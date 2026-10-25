@@ -342,53 +342,54 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 
 app.get('/api/updates/latest', async (req, res) => {
   try {
-    if (GITHUB_TOKEN) {
-      try {
-        const ghUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
-        const ghRes = await fetch(ghUrl, {
-          headers: {
-            'User-Agent': 'EBillDownloader-LicenseServer',
-            'Authorization': `Bearer ${GITHUB_TOKEN}`,
-            'Accept': 'application/vnd.github.v3+json'
-          }
-        });
-
-        if (ghRes.ok) {
-          const data = await ghRes.json();
-          const tag = (data.tag_name || '').replace(/^v/, '');
-          const assets = data.assets || [];
-
-          const isWin7 = (req.query.os || '').toLowerCase() === 'win7' || (req.headers['user-agent'] || '').toLowerCase().includes('windows nt 6.1');
-
-          let setupAsset;
-          if (isWin7) {
-            setupAsset = assets.find(a => a.name.toLowerCase().includes('win7') && a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
-              || assets.find(a => a.name.toLowerCase().includes('win7') && a.name.toLowerCase().endsWith('.exe'));
-          } else {
-            setupAsset = assets.find(a => !a.name.toLowerCase().includes('win7') && a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
-              || assets.find(a => !a.name.toLowerCase().includes('win7') && a.name.toLowerCase().endsWith('.exe'));
-          }
-
-          if (!setupAsset) {
-            setupAsset = assets.find(a => a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
-              || assets.find(a => a.name.toLowerCase().endsWith('.exe'));
-          }
-
-          if (setupAsset) {
-            const host = req.get('host');
-            const proto = req.headers['x-forwarded-proto'] || 'https';
-            return res.json({
-              version: tag,
-              file_name: setupAsset.name,
-              file_size: setupAsset.size || 0,
-              download_url: `${proto}://${host}/api/updates/download?asset_id=${setupAsset.id}`,
-              release_notes: data.body || 'New update available with performance enhancements.'
-            });
-          }
-        }
-      } catch (ghErr) {
-        console.warn('[GH FETCH WARN] Failed to fetch from GitHub API:', ghErr.message);
+    try {
+      const ghHeaders = {
+        'User-Agent': 'EBillDownloader-LicenseServer',
+        'Accept': 'application/vnd.github.v3+json'
+      };
+      if (GITHUB_TOKEN) {
+        ghHeaders['Authorization'] = `Bearer ${GITHUB_TOKEN}`;
       }
+
+      const ghUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+      const ghRes = await fetch(ghUrl, { headers: ghHeaders });
+
+      if (ghRes.ok) {
+        const data = await ghRes.json();
+        const tag = (data.tag_name || '').replace(/^v/, '');
+        const assets = data.assets || [];
+
+        const isWin7 = (req.query.os || '').toLowerCase() === 'win7' || (req.headers['user-agent'] || '').toLowerCase().includes('windows nt 6.1');
+
+        let setupAsset;
+        if (isWin7) {
+          setupAsset = assets.find(a => a.name.toLowerCase().includes('win7') && a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
+            || assets.find(a => a.name.toLowerCase().includes('win7') && a.name.toLowerCase().endsWith('.exe'));
+        } else {
+          setupAsset = assets.find(a => !a.name.toLowerCase().includes('win7') && a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
+            || assets.find(a => !a.name.toLowerCase().includes('win7') && a.name.toLowerCase().endsWith('.exe'));
+        }
+
+        if (!setupAsset) {
+          setupAsset = assets.find(a => a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
+            || assets.find(a => a.name.toLowerCase().endsWith('.exe'));
+        }
+
+        if (setupAsset) {
+          const host = req.get('host');
+          const proto = req.headers['x-forwarded-proto'] || 'https';
+          const dlUrl = setupAsset.browser_download_url || `${proto}://${host}/api/updates/download?asset_id=${setupAsset.id}`;
+          return res.json({
+            version: tag,
+            file_name: setupAsset.name,
+            file_size: setupAsset.size || 0,
+            download_url: dlUrl,
+            release_notes: data.body || 'New update available with performance enhancements.'
+          });
+        }
+      }
+    } catch (ghErr) {
+      console.warn('[GH FETCH WARN] Failed to fetch from GitHub API:', ghErr.message);
     }
 
     // Fallback: Check Supabase table

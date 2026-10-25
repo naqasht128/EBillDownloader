@@ -1,1 +1,1 @@
-• Match Bill Scrapper dimensions, fix dark readonly backgrounds, black pause text, larger checkboxes, updated subtitle, and desktop icon binding
+• Enable resilient auto-update detection via GitHub API and backend, add manual check in About dialog

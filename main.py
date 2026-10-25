@@ -40,7 +40,7 @@ from openpyxl import load_workbook
 # ──────────────────────────────────────────────────────────────
 APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
-APP_VERSION = "1.0.4"
+APP_VERSION = "1.0.5"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
 LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
@@ -357,6 +357,7 @@ class UpdateInfo:
 
 
 def check_for_updates(current_version: str = APP_VERSION) -> UpdateInfo | None:
+    # 1. Primary: Query Vercel Licensing & Updates Backend
     try:
         headers = {"User-Agent": "EBillDownloader-DesktopApp", "Accept": "application/json"}
         params = {}
@@ -367,28 +368,74 @@ def check_for_updates(current_version: str = APP_VERSION) -> UpdateInfo | None:
                     params["os"] = "win7"
             except Exception:
                 pass
-        resp = requests.get(UPDATE_API_URL, headers=headers, params=params, timeout=8)
-        if resp.status_code != 200:
-            return None
-        data = resp.json()
-        target_version = data.get("version", "").strip().lstrip("v")
-        download_url = data.get("download_url", "").strip()
-        if not target_version or not download_url:
-            return None
-
-        if parse_version_tuple(target_version) <= parse_version_tuple(current_version):
-            return None
-
-        file_name = data.get("file_name", "EBillDownloader-Setup.exe")
-        return UpdateInfo(
-            version=target_version,
-            download_url=download_url,
-            file_name=file_name,
-            file_size=data.get("file_size", 0),
-            release_notes=data.get("release_notes", ""),
-        )
+        resp = requests.get(UPDATE_API_URL, headers=headers, params=params, timeout=6)
+        if resp.status_code == 200:
+            data = resp.json()
+            target_version = data.get("version", "").strip().lstrip("v")
+            download_url = data.get("download_url", "").strip()
+            if target_version and download_url:
+                if parse_version_tuple(target_version) > parse_version_tuple(current_version):
+                    file_name = data.get("file_name", "EBillDownloader-Setup.exe")
+                    return UpdateInfo(
+                        version=target_version,
+                        download_url=download_url,
+                        file_name=file_name,
+                        file_size=data.get("file_size", 0),
+                        release_notes=data.get("release_notes", ""),
+                    )
     except Exception:
-        return None
+        pass
+
+    # 2. Resilient Direct Fallback: Query GitHub Releases directly (naqasht128/EBillDownloader)
+    try:
+        gh_url = "https://api.github.com/repos/naqasht128/EBillDownloader/releases/latest"
+        gh_resp = requests.get(
+            gh_url,
+            headers={"User-Agent": "EBillDownloader-DesktopApp", "Accept": "application/vnd.github.v3+json"},
+            timeout=8
+        )
+        if gh_resp.status_code == 200:
+            data = gh_resp.json()
+            target_version = (data.get("tag_name") or "").strip().lstrip("v")
+            if target_version and parse_version_tuple(target_version) > parse_version_tuple(current_version):
+                assets = data.get("assets", [])
+                is_win7 = False
+                if sys.platform == "win32":
+                    try:
+                        winver = sys.getwindowsversion()
+                        if winver.major == 6 and winver.minor == 1:
+                            is_win7 = True
+                    except Exception:
+                        pass
+
+                selected_asset = None
+                if is_win7:
+                    for a in assets:
+                        name = a.get("name", "").lower()
+                        if "win7" in name and name.endswith(".exe"):
+                            selected_asset = a
+                            break
+                if not selected_asset:
+                    for a in assets:
+                        name = a.get("name", "").lower()
+                        if "setup" in name and name.endswith(".exe") and "win7" not in name:
+                            selected_asset = a
+                            break
+                if not selected_asset and assets:
+                    selected_asset = assets[0]
+
+                if selected_asset:
+                    return UpdateInfo(
+                        version=target_version,
+                        download_url=selected_asset.get("browser_download_url", ""),
+                        file_name=selected_asset.get("name", "EBillDownloader-Setup.exe"),
+                        file_size=selected_asset.get("size", 0),
+                        release_notes=data.get("body", "New update available with performance enhancements."),
+                    )
+    except Exception:
+        pass
+
+    return None
 
 
 def install_and_restart(new_file_path: str, root_window: tk.Tk):
@@ -927,6 +974,22 @@ class AboutDialog(tk.Toplevel):
 
         btn_box = ttk.Frame(container, style="Root.TFrame")
         btn_box.pack(fill="x")
+
+        self.btn_check_update = tk.Button(
+            btn_box,
+            text="🔄  Check for Updates",
+            bg=BTN_SEC_BG,
+            fg=TEXT_MAIN,
+            activebackground=BTN_SEC_HOVER,
+            relief="flat",
+            font=(UI_FONT, 9),
+            command=self._check_update_manual,
+            padx=12,
+            pady=4,
+            cursor="hand2"
+        )
+        self.btn_check_update.pack(side="left")
+
         tk.Button(
             btn_box,
             text="Close",
@@ -941,6 +1004,22 @@ class AboutDialog(tk.Toplevel):
         ).pack(side="right")
 
         self.grab_set()
+
+    def _check_update_manual(self):
+        self.btn_check_update.configure(state="disabled", text="Checking...")
+        def worker():
+            info = check_for_updates()
+            def update_ui():
+                if not self.winfo_exists():
+                    return
+                self.btn_check_update.configure(state="normal", text="🔄  Check for Updates")
+                if info:
+                    self.destroy()
+                    UpdateDialog(self.parent, info)
+                else:
+                    messagebox.showinfo("Up to Date", f"You are running the latest version (v{APP_VERSION})!", parent=self)
+            self.after(0, update_ui)
+        threading.Thread(target=worker, daemon=True).start()
 
 
 # ──────────────────────────────────────────────────────────────
