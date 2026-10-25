@@ -990,7 +990,7 @@ class AboutDialog(tk.Toplevel):
             except Exception:
                 pass
 
-        w, h = 480, 360
+        w, h = 480, 370
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
         px = max(0, (sw - w) // 2)
@@ -1062,7 +1062,16 @@ class AboutDialog(tk.Toplevel):
         sup_card = ttk.Frame(container, style="Card.TFrame", padding=(14, 12))
         sup_card.pack(fill="x", pady=(0, 12))
         ttk.Label(sup_card, text="DEVELOPER SUPPORT", font=(UI_FONT, 8, "bold"), foreground=TEXT_MUTED).pack(anchor="w", pady=(0, 6))
-        ttk.Label(sup_card, text="WhatsApp: +92 333 9962474  •  Email: tahir.naqash4@gmail.com", font=(UI_FONT, 8), foreground=TEXT_WHITE).pack(anchor="w")
+
+        support_details = [
+            ("WhatsApp:", "+92 333 9962474"),
+            ("Email:", "tahir.naqash4@gmail.com"),
+        ]
+        for k, v in support_details:
+            r = ttk.Frame(sup_card, style="Card.TFrame")
+            r.pack(fill="x", pady=2)
+            ttk.Label(r, text=k, font=(UI_FONT, 8), foreground=TEXT_MUTED, width=16).pack(side="left")
+            ttk.Label(r, text=v, font=(UI_FONT, 8, "bold"), foreground=TEXT_WHITE).pack(side="left")
 
         btn_box = ttk.Frame(container, style="Root.TFrame")
         btn_box.pack(fill="x")
