@@ -1,1 +1,1 @@
-• Updated brand identity with new custom E-Bill Downloader app icon
+• Fix LicenseGateDialog visibility on startup and fix backend URL
