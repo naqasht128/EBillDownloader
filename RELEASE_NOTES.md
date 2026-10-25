@@ -1,1 +1,1 @@
-• Enable resilient auto-update detection via GitHub API and backend, add manual check in About dialog
+• Fix selenium ChromeOptions hiddenimport in PyInstaller, remove 'if needed' from subtitle, reduce checkbox font

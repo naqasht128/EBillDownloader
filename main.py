@@ -40,7 +40,7 @@ from openpyxl import load_workbook
 # ──────────────────────────────────────────────────────────────
 APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
-APP_VERSION = "1.0.5"
+APP_VERSION = "1.0.6"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
 LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
@@ -1142,6 +1142,7 @@ class BillWorkerEngine:
     def _execute(self):
         try:
             from selenium import webdriver
+            from selenium.webdriver.chrome.options import Options as ChromeOptions
             from selenium.webdriver.common.by import By
             from selenium.webdriver.chrome.service import Service
             from selenium.webdriver.support.ui import WebDriverWait
@@ -1170,7 +1171,7 @@ class BillWorkerEngine:
             return
 
         self.log(f"🚀 Initializing Chrome Web Driver (Headless: {headless})...")
-        opts = webdriver.ChromeOptions()
+        opts = ChromeOptions()
         if headless:
             opts.add_argument("--headless=new")
         opts.add_argument("--disable-gpu")
@@ -1538,8 +1539,7 @@ class EBillDownloaderApp(tk.Tk):
             "TCheckbutton",
             background=CARD_BG,
             foreground=TEXT_WHITE,
-            font=(UI_FONT, 11),
-            indicatorsize=16,
+            font=(UI_FONT, 9),
             indicatorbackground=INPUT_BG,
             indicatorforeground=ACCENT_GREEN,
             relief="flat",
@@ -1673,7 +1673,7 @@ class EBillDownloaderApp(tk.Tk):
         title_box = ttk.Frame(header_bar, style="Root.TFrame")
         title_box.pack(side="left")
         ttk.Label(title_box, text="E-Bill Downloader", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(title_box, text="Downloads E-Bill into PDFs, Seperate/Multi PDFs & Adds Sr. No. if needed", style="Sub.TLabel").pack(anchor="w")
+        ttk.Label(title_box, text="Downloads E-Bill into PDFs, Seperate/Multi PDFs & Adds Sr. No.", style="Sub.TLabel").pack(anchor="w")
 
         btn_box = ttk.Frame(header_bar, style="Root.TFrame")
         btn_box.pack(side="right", pady=4)
