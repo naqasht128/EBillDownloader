@@ -977,152 +977,203 @@ class LicenseGateDialog(tk.Toplevel):
 #  ABOUT DIALOG
 # ──────────────────────────────────────────────────────────────
 class AboutDialog(tk.Toplevel):
-    def __init__(self, parent: tk.Tk, license_info: dict | None):
+    """Sleek modal dialog showing application, active license, and developer information."""
+    def __init__(self, parent, license_info: dict | None = None):
         super().__init__(parent)
+        self.withdraw()  # Keep hidden during configuration to prevent visual blink
         self.parent = parent
         self.license_info = license_info
         self.title("About E-Bill Downloader")
         self.configure(bg=BG_DARK)
         self.resizable(False, False)
-        if parent and parent.state() != "withdrawn":
+        if parent and parent.winfo_exists():
             try:
-                self.transient(parent)
+                if parent.state() != "withdrawn":
+                    self.transient(parent)
             except Exception:
                 pass
 
-        w, h = 480, 370
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        px = max(0, (sw - w) // 2)
-        py = max(0, (sh - h) // 2)
-        self.geometry(f"{w}x{h}+{px}+{py}")
-        set_dark_title_bar(self)
+        try:
+            if sys.platform == "win32":
+                icon_file = resource_path("assets/app.ico")
+                if os.path.exists(icon_file):
+                    self.iconbitmap(icon_file)
+        except Exception:
+            pass
 
-        container = ttk.Frame(self, style="Root.TFrame", padding=(20, 16))
+        w, h = 460, 420
+        if parent and parent.winfo_exists() and parent.winfo_viewable():
+            px = parent.winfo_rootx() + (parent.winfo_width() // 2) - (w // 2)
+            py = parent.winfo_rooty() + (parent.winfo_height() // 2) - (h // 2)
+        else:
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            px = max(0, (sw - w) // 2)
+            py = max(0, (sh - h) // 2)
+        self.geometry(f"{w}x{h}+{max(0, px)}+{max(0, py)}")
+
+        container = ttk.Frame(self, style="Root.TFrame", padding=(20, 16, 20, 16))
         container.pack(fill="both", expand=True)
 
-        ttk.Label(container, text="E-Bill Downloader", font=(UI_FONT, 14, "bold"), foreground=TEXT_WHITE).pack(anchor="w")
-        ttk.Label(container, text=f"Version {APP_VERSION}  •  TN Developers Co.", font=(UI_FONT, 9), foreground=TEXT_MUTED).pack(anchor="w", pady=(2, 12))
+        app_title = ttk.Label(container, text="E-Bill Downloader", style="Title.TLabel", font=(UI_FONT, 14, "bold"))
+        app_title.pack(anchor="w")
 
-        # License info card
-        lic_card = ttk.Frame(container, style="Card.TFrame", padding=(14, 12))
-        lic_card.pack(fill="x", pady=(0, 12))
+        app_ver = ttk.Label(container, text=f"Version {APP_VERSION}", style="Sub.TLabel")
+        app_ver.pack(anchor="w", pady=(2, 2))
 
-        ttk.Label(lic_card, text="SUBSCRIPTION DETAILS", font=(UI_FONT, 8, "bold"), foreground=TEXT_MUTED).pack(anchor="w", pady=(0, 6))
+        app_desc = ttk.Label(container, text="Downloads electricity bills into separate or merged PDFs", style="Muted.TLabel")
+        app_desc.pack(anchor="w", pady=(0, 8))
 
-        plan = format_plan_label(license_info.get("plan_type") if license_info else None)
-        exp = format_expiry_date(license_info.get("expires_at") if license_info else None)
-        s_key = license_info.get("serial_key", "Not Activated") if license_info else "Not Activated"
+        # 1. License Information Card
+        lic = license_info or getattr(parent, "active_license", None) or load_local_license()
+        serial_key = lic.get("serial_key", "Not Activated") if lic else "Not Activated"
+        plan_str = format_plan_label(lic.get("plan_type")) if lic else "Not Activated"
+        expiry_str = format_expiry_date(lic.get("expires_at")) if lic else "Not Activated"
 
-        details = [
-            ("Subscription Plan:", plan),
-            ("Serial Key:", s_key),
-            ("Expires At:", exp),
-        ]
+        lic_card = ttk.Frame(container, style="Card.TFrame", padding=(14, 10))
+        lic_card.pack(fill="x", pady=(0, 10))
 
-        for k, v in details:
-            r = ttk.Frame(lic_card, style="Card.TFrame")
-            r.pack(fill="x", pady=2)
-            ttk.Label(r, text=k, font=(UI_FONT, 8), foreground=TEXT_MUTED, width=16).pack(side="left")
-            ttk.Label(r, text=v, font=(UI_FONT, 8, "bold"), foreground=TEXT_WHITE).pack(side="left", fill="x", expand=True)
-            if k == "Serial Key:":
-                self.copy_key_btn = tk.Button(
-                    r,
-                    text="📋 Copy",
-                    bg=BTN_SEC_BG,
-                    fg=TEXT_MAIN,
-                    activebackground=BTN_SEC_HOVER,
-                    activeforeground=TEXT_WHITE,
-                    font=(UI_FONT, 8),
-                    relief="flat",
-                    cursor="hand2",
-                    padx=8,
-                    pady=1,
-                    command=self._copy_serial_key,
-                )
-                self.copy_key_btn.pack(side="right")
+        ttk.Label(lic_card, text="LICENSE INFORMATION", font=(UI_FONT, 8, "bold"), foreground=TEXT_MUTED, background=CARD_BG).pack(anchor="w", pady=(0, 4))
 
-                self.change_key_btn = tk.Button(
-                    r,
-                    text="🔑 Change Key",
-                    bg=BTN_SEC_BG,
-                    fg=TEXT_WHITE,
-                    activebackground=BTN_SEC_HOVER,
-                    activeforeground=TEXT_WHITE,
-                    font=(UI_FONT, 8, "bold"),
-                    relief="flat",
-                    cursor="hand2",
-                    padx=8,
-                    pady=1,
-                    command=self._change_serial_key,
-                )
-                self.change_key_btn.pack(side="right", padx=(0, 6))
+        key_row = ttk.Frame(lic_card, style="Card.TFrame")
+        key_row.pack(fill="x", pady=(2, 4))
 
-        # Support card
-        sup_card = ttk.Frame(container, style="Card.TFrame", padding=(14, 12))
-        sup_card.pack(fill="x", pady=(0, 12))
-        ttk.Label(sup_card, text="DEVELOPER SUPPORT", font=(UI_FONT, 8, "bold"), foreground=TEXT_MUTED).pack(anchor="w", pady=(0, 6))
+        ttk.Label(key_row, text="Key: ", font=(UI_FONT, 9, "bold"), foreground=TEXT_WHITE, background=CARD_BG).pack(side="left")
+        ttk.Label(key_row, text=serial_key, font=(MONO_FONT, 9, "bold"), foreground="#4ec9b0", background=CARD_BG).pack(side="left")
 
-        support_details = [
-            ("WhatsApp:", "+92 333 9962474"),
-            ("Email:", "tahir.naqash4@gmail.com"),
-        ]
-        for k, v in support_details:
-            r = ttk.Frame(sup_card, style="Card.TFrame")
-            r.pack(fill="x", pady=2)
-            ttk.Label(r, text=k, font=(UI_FONT, 8), foreground=TEXT_MUTED, width=16).pack(side="left")
-            ttk.Label(r, text=v, font=(UI_FONT, 8, "bold"), foreground=TEXT_WHITE).pack(side="left")
+        self.copy_key_btn = tk.Button(
+            key_row,
+            text="📋 Copy",
+            bg=BTN_SEC_BG,
+            fg=TEXT_MAIN,
+            activebackground=BTN_SEC_HOVER,
+            activeforeground=TEXT_WHITE,
+            font=(UI_FONT, 8),
+            relief="flat",
+            cursor="hand2",
+            padx=8,
+            pady=2,
+            command=self._copy_serial_key,
+        )
+        self.copy_key_btn.pack(side="right")
+
+        self.change_key_btn = tk.Button(
+            key_row,
+            text="🔑 Change Key",
+            bg=BTN_SEC_BG,
+            fg=TEXT_WHITE,
+            activebackground=BTN_SEC_HOVER,
+            activeforeground=TEXT_WHITE,
+            font=(UI_FONT, 8, "bold"),
+            relief="flat",
+            cursor="hand2",
+            padx=8,
+            pady=2,
+            command=self._change_serial_key,
+        )
+        self.change_key_btn.pack(side="right", padx=(0, 4))
+
+        plan_lbl = ttk.Label(
+            lic_card,
+            text=f"Plan: {plan_str}",
+            font=(UI_FONT, 9),
+            foreground=TEXT_MAIN,
+            background=CARD_BG,
+        )
+        plan_lbl.pack(anchor="w", pady=(0, 2))
+
+        exp_lbl = ttk.Label(
+            lic_card,
+            text=f"Status: {expiry_str}",
+            font=(UI_FONT, 9),
+            foreground="#89d185" if ("remaining" in expiry_str or "today" in expiry_str) else TEXT_MAIN,
+            background=CARD_BG,
+        )
+        exp_lbl.pack(anchor="w")
+
+        # 2. Developer Information Card
+        info_card = ttk.Frame(container, style="Card.TFrame", padding=(14, 10))
+        info_card.pack(fill="x", pady=(0, 12))
+
+        dev_lbl = ttk.Label(
+            info_card,
+            text="Developed by TN Developers Co.",
+            font=(UI_FONT, 9, "bold"),
+            foreground=TEXT_WHITE,
+            background=CARD_BG,
+        )
+        dev_lbl.pack(anchor="w", pady=(0, 4))
+
+        email_lbl = ttk.Label(
+            info_card,
+            text="Email: tahir.naqash4@gmail.com",
+            font=(UI_FONT, 9),
+            foreground=TEXT_MAIN,
+            background=CARD_BG,
+        )
+        email_lbl.pack(anchor="w", pady=(0, 2))
+
+        contact_lbl = ttk.Label(
+            info_card,
+            text="Contact: 03339962474",
+            font=(UI_FONT, 9),
+            foreground=TEXT_MAIN,
+            background=CARD_BG,
+        )
+        contact_lbl.pack(anchor="w")
 
         btn_box = ttk.Frame(container, style="Root.TFrame")
-        btn_box.pack(fill="x")
+        btn_box.pack(fill="x", pady=(4, 0))
 
         self.btn_check_update = tk.Button(
             btn_box,
             text="🔄  Check for Updates",
-            bg=BTN_SEC_BG,
-            fg=TEXT_MAIN,
-            activebackground=BTN_SEC_HOVER,
-            relief="flat",
-            font=(UI_FONT, 9),
             command=self._check_update_manual,
-            padx=12,
-            pady=4,
-            cursor="hand2"
+            bg=BTN_SEC_BG,
+            fg=TEXT_WHITE,
+            activebackground=BTN_SEC_HOVER,
+            activeforeground=TEXT_WHITE,
+            font=(UI_FONT, 8, "bold"),
+            relief="flat",
+            cursor="hand2",
+            padx=10,
+            pady=3,
+            bd=0,
         )
         self.btn_check_update.pack(side="left")
 
-        tk.Button(
-            btn_box,
-            text="Close",
-            bg=BTN_SEC_BG,
-            fg=TEXT_MAIN,
-            relief="flat",
-            font=(UI_FONT, 9),
-            command=self.destroy,
-            padx=14,
-            pady=4,
-            cursor="hand2"
-        ).pack(side="right")
+        close_btn = ttk.Button(btn_box, text="Close", command=self.destroy)
+        close_btn.pack(side="right")
+        close_btn.focus_set()
 
+        try:
+            set_dark_title_bar(self)
+        except Exception:
+            pass
+        self.update_idletasks()
+        self.deiconify()
+        self.lift()
+        self.focus_force()
         self.grab_set()
 
     def _copy_serial_key(self):
-        lic = getattr(self.parent, "active_license", None) or self.license_info or load_local_license()
+        lic = self.license_info or getattr(self.parent, "active_license", None) or load_local_license()
         key = lic.get("serial_key", "") if lic else ""
         if key and key != "Not Activated":
             self.clipboard_clear()
             self.clipboard_append(key)
-            self.copy_key_btn.configure(text="✔ Copied!", fg="#89d185")
+            self.copy_key_btn.configure(text="✅ Copied!", fg="#4ec9b0")
             self.after(2000, lambda: self.copy_key_btn.configure(text="📋 Copy", fg=TEXT_MAIN) if self.winfo_exists() and hasattr(self, "copy_key_btn") and self.copy_key_btn.winfo_exists() else None)
 
     def _change_serial_key(self):
         parent = self.parent
         self.destroy()
-        gate = LicenseGateDialog(parent)
-        parent.wait_window(gate)
-        if gate.activated and gate.license_info:
-            parent.active_license = gate.license_info
-            messagebox.showinfo("License Activated", "Serial key updated successfully!", parent=parent)
+        if parent and parent.winfo_exists():
+            gate = LicenseGateDialog(parent)
+            parent.wait_window(gate)
+            if getattr(gate, "activated", False) and gate.license_info:
+                parent.active_license = gate.license_info
+                messagebox.showinfo("License Activated", "Serial key updated successfully!", parent=parent)
 
     def _check_update_manual(self):
         self.btn_check_update.configure(state="disabled", text="Checking...")
@@ -1139,8 +1190,6 @@ class AboutDialog(tk.Toplevel):
                     messagebox.showinfo("Up to Date", f"You are running the latest version (v{APP_VERSION})!", parent=self)
             self.after(0, update_ui)
         threading.Thread(target=worker, daemon=True).start()
-
-
 # ──────────────────────────────────────────────────────────────
 #  CORE DOWNLOADER ENGINE (Selenium + PyMuPDF fitz + pypdf)
 # ──────────────────────────────────────────────────────────────
@@ -1630,6 +1679,7 @@ class EBillDownloaderApp(tk.Tk):
         self.style.configure("Root.TLabel", background=BG_DARK, foreground=TEXT_MAIN, font=(UI_FONT, 9))
         self.style.configure("Title.TLabel", background=BG_DARK, foreground=TEXT_WHITE, font=(UI_FONT, 16, "bold"))
         self.style.configure("Sub.TLabel", background=BG_DARK, foreground=TEXT_MUTED, font=(UI_FONT, 9))
+        self.style.configure("Muted.TLabel", background=BG_DARK, foreground=TEXT_MUTED, font=(UI_FONT, 8, "italic"))
         self.style.configure("Status.TLabel", background=BG_DARK, foreground=TEXT_MAIN, font=(UI_FONT, 9))
         self.style.configure("CardTitle.TLabel", background=CARD_BG, foreground=TEXT_WHITE, font=(UI_FONT, 9, "bold"))
         self.style.configure("StatTitle.TLabel", background=CARD_BG, foreground=TEXT_MUTED, font=(UI_FONT, 9))
