@@ -2,7 +2,7 @@
 ; Produces a modern, professional, per-user Windows Setup Wizard
 
 #ifndef AppVersion
-#define AppVersion "1.0.3"
+#define AppVersion "1.0.4"
 #endif
 
 #ifndef OutputBaseFilename
@@ -34,6 +34,7 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 CloseApplications=force
 RestartApplications=no
+ChangesAssociations=yes
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} Setup
 VersionInfoVersion={#AppVersion}
@@ -54,9 +55,13 @@ Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs
 Source: "redist\vc_redist.x86.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 #endif
 
+[InstallDelete]
+Type: files; Name: "{autodesktop}\{#AppName}.lnk"
+Type: files; Name: "{autoprograms}\{#AppName}.lnk"
+
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\assets\app.ico"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon; IconFilename: "{app}\assets\app.ico"
 
 [Run]
 #ifdef IncludeVCRedist

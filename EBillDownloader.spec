@@ -38,7 +38,7 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
-exe_icon = ['assets/app.ico'] if sys.platform == 'win32' else None
+exe_icon = 'assets/app.ico' if sys.platform == 'win32' else None
 
 exe = EXE(
     pyz,

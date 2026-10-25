@@ -40,7 +40,7 @@ from openpyxl import load_workbook
 # ──────────────────────────────────────────────────────────────
 APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.0.4"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
 LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
@@ -1330,13 +1330,13 @@ class EBillDownloaderApp(tk.Tk):
         self.title("E-Bill Downloader")
         self.configure(bg=BG_DARK)
         self.resizable(True, True)
-        w, h = 680, 560
+        w, h = 640, 630
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
         px = max(0, (sw - w) // 2)
         py = max(0, (sh - h) // 2)
         self.geometry(f"{w}x{h}+{px}+{py}")
-        self.minsize(600, 460)
+        self.minsize(580, 540)
 
         # Application Icon
         self._icon_img = None
@@ -1459,7 +1459,8 @@ class EBillDownloaderApp(tk.Tk):
             "TCheckbutton",
             background=CARD_BG,
             foreground=TEXT_WHITE,
-            font=(UI_FONT, 9),
+            font=(UI_FONT, 11),
+            indicatorsize=16,
             indicatorbackground=INPUT_BG,
             indicatorforeground=ACCENT_GREEN,
             relief="flat",
@@ -1593,7 +1594,7 @@ class EBillDownloaderApp(tk.Tk):
         title_box = ttk.Frame(header_bar, style="Root.TFrame")
         title_box.pack(side="left")
         ttk.Label(title_box, text="E-Bill Downloader", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(title_box, text=f"Batch Utility Bill Scraper & A4 PDF Generator • v{APP_VERSION}", style="Sub.TLabel").pack(anchor="w")
+        ttk.Label(title_box, text="Downloads E-Bill into PDFs, Seperate/Multi PDFs & Adds Sr. No. if needed", style="Sub.TLabel").pack(anchor="w")
 
         btn_box = ttk.Frame(header_bar, style="Root.TFrame")
         btn_box.pack(side="right", pady=4)
@@ -1625,6 +1626,9 @@ class EBillDownloaderApp(tk.Tk):
             textvariable=self.excel_var,
             bg=INPUT_BG,
             fg=TEXT_WHITE,
+            readonlybackground=INPUT_BG,
+            disabledbackground=INPUT_BG,
+            disabledforeground=TEXT_WHITE,
             relief="flat",
             font=(UI_FONT, 9),
             highlightthickness=1,
@@ -1708,6 +1712,9 @@ class EBillDownloaderApp(tk.Tk):
             textvariable=self.out_var,
             bg=INPUT_BG,
             fg=TEXT_WHITE,
+            readonlybackground=INPUT_BG,
+            disabledbackground=INPUT_BG,
+            disabledforeground=TEXT_WHITE,
             relief="flat",
             font=(UI_FONT, 9),
             highlightthickness=1,
@@ -1780,9 +1787,10 @@ class EBillDownloaderApp(tk.Tk):
             btn_action_box,
             text="⏸  PAUSE",
             bg=ACCENT_ORANGE,
-            fg=TEXT_WHITE,
+            fg="#000000",
             activebackground=ACCENT_ORANGE_HOVER,
-            activeforeground=TEXT_WHITE,
+            activeforeground="#000000",
+            disabledforeground="#555555",
             relief="flat",
             font=(UI_FONT, 10, "bold"),
             cursor="hand2",

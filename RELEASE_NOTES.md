@@ -1,1 +1,1 @@
-• Add Save button for Bills URL and optimize vertical window dimensions
+• Match Bill Scrapper dimensions, fix dark readonly backgrounds, black pause text, larger checkboxes, updated subtitle, and desktop icon binding
