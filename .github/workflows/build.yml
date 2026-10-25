@@ -156,4 +156,4 @@ jobs:
             release-assets/EBillDownloader-Win7-Setup.exe
           draft: false
           body_path: RELEASE_NOTES.md
-          generate_release_notes: true
+          generate_release_notes: false

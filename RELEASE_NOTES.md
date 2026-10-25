@@ -1,1 +1,1 @@
-• Add Download Excel Template button with styled sample workbook generation
+• Add Progress Summary section, Change Key in About, and streamlined UI

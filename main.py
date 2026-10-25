@@ -40,7 +40,7 @@ from openpyxl import load_workbook
 # ──────────────────────────────────────────────────────────────
 APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
-APP_VERSION = "1.0.7"
+APP_VERSION = "1.0.8"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
 LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
@@ -979,10 +979,16 @@ class LicenseGateDialog(tk.Toplevel):
 class AboutDialog(tk.Toplevel):
     def __init__(self, parent: tk.Tk, license_info: dict | None):
         super().__init__(parent)
+        self.parent = parent
+        self.license_info = license_info
         self.title("About E-Bill Downloader")
         self.configure(bg=BG_DARK)
         self.resizable(False, False)
-        self.transient(parent)
+        if parent and parent.state() != "withdrawn":
+            try:
+                self.transient(parent)
+            except Exception:
+                pass
 
         w, h = 480, 420
         sw = self.winfo_screenwidth()
@@ -1020,6 +1026,21 @@ class AboutDialog(tk.Toplevel):
             r.pack(fill="x", pady=2)
             ttk.Label(r, text=k, font=(UI_FONT, 8), foreground=TEXT_MUTED, width=16).pack(side="left")
             ttk.Label(r, text=v, font=(UI_FONT, 8, "bold"), foreground=TEXT_WHITE).pack(side="left", fill="x", expand=True)
+            if k == "Serial Key:":
+                tk.Button(
+                    r,
+                    text="🔑 Change Key",
+                    bg=BTN_SEC_BG,
+                    fg=TEXT_WHITE,
+                    activebackground=BTN_SEC_HOVER,
+                    activeforeground=TEXT_WHITE,
+                    font=(UI_FONT, 8, "bold"),
+                    relief="flat",
+                    cursor="hand2",
+                    padx=8,
+                    pady=1,
+                    command=self._change_serial_key,
+                ).pack(side="right")
 
         # Support card
         sup_card = ttk.Frame(container, style="Card.TFrame", padding=(14, 12))
@@ -1045,6 +1066,22 @@ class AboutDialog(tk.Toplevel):
         )
         self.btn_check_update.pack(side="left")
 
+        self.btn_change_key = tk.Button(
+            btn_box,
+            text="🔑  Change Key",
+            bg=BTN_SEC_BG,
+            fg=TEXT_WHITE,
+            activebackground=BTN_SEC_HOVER,
+            activeforeground=TEXT_WHITE,
+            relief="flat",
+            font=(UI_FONT, 9, "bold"),
+            command=self._change_serial_key,
+            padx=12,
+            pady=4,
+            cursor="hand2"
+        )
+        self.btn_change_key.pack(side="left", padx=(8, 0))
+
         tk.Button(
             btn_box,
             text="Close",
@@ -1059,6 +1096,15 @@ class AboutDialog(tk.Toplevel):
         ).pack(side="right")
 
         self.grab_set()
+
+    def _change_serial_key(self):
+        parent = self.parent
+        self.destroy()
+        gate = LicenseGateDialog(parent)
+        parent.wait_window(gate)
+        if gate.activated and gate.license_info:
+            parent.active_license = gate.license_info
+            messagebox.showinfo("License Activated", "Serial key updated successfully!", parent=parent)
 
     def _check_update_manual(self):
         self.btn_check_update.configure(state="disabled", text="Checking...")
@@ -1890,12 +1936,11 @@ class EBillDownloaderApp(tk.Tk):
         mid_frame.pack(fill="x", pady=(0, 6))
 
         # Left: Download Options
-        options_card = ttk.LabelFrame(mid_frame, text="  DOWNLOAD OPTIONS  ", padding=(10, 6))
+        options_card = ttk.LabelFrame(mid_frame, text="  DOWNLOAD OPTIONS  ", padding=(10, 8))
         options_card.pack(side="left", fill="both", expand=True, padx=(0, 4))
 
-        ttk.Checkbutton(options_card, text="Add Sr. No. on Bill", variable=self.chk_sr_var).pack(anchor="w", pady=(0, 2))
-        ttk.Checkbutton(options_card, text="Separate PDFs (Individual)", variable=self.chk_sep_var).pack(anchor="w", pady=(0, 2))
-        ttk.Checkbutton(options_card, text="Headless Mode (Background)", variable=self.chk_headless_var).pack(anchor="w")
+        ttk.Checkbutton(options_card, text="Add Sr. No. on Bill", variable=self.chk_sr_var).pack(anchor="w", pady=(4, 6))
+        ttk.Checkbutton(options_card, text="Separate PDFs (Individual)", variable=self.chk_sep_var).pack(anchor="w", pady=(0, 4))
 
         # Right: Progress Summary
         stats_box = ttk.LabelFrame(mid_frame, text="  PROGRESS SUMMARY  ", padding=(10, 6))
@@ -2167,7 +2212,7 @@ class EBillDownloaderApp(tk.Tk):
                 "excel_path": excel,
                 "out_folder": out,
                 "url": url,
-                "headless": self.chk_headless_var.get(),
+                "headless": True,
                 "add_sr": self.chk_sr_var.get(),
                 "separate": self.chk_sep_var.get(),
             }
