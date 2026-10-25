@@ -40,7 +40,7 @@ from openpyxl import load_workbook
 # ──────────────────────────────────────────────────────────────
 APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
-APP_VERSION = "1.0.9"
+APP_VERSION = "1.0.10"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
 LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"

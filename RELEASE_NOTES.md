@@ -1,1 +1,1 @@
-• Standardize About dialog to ditto copy of Bill Scrapper layout
+• Dynamic Start/Pause toggle button with resume and separate Stop button
