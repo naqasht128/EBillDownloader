@@ -1327,7 +1327,8 @@ class BillWorkerEngine:
 
                 ac = str(ac).strip()
                 sr_str = str(sr).strip() if sr is not None else ""
-                self.log(f"[{done + 1}/{total}] Searching AC: {ac} (Sr: {sr_str or 'N/A'})")
+                sr_suffix = f" (Sr: {sr_str})" if sr_str and sr_str.upper() != "N/A" else ""
+                self.log(f"[{done + 1}/{total}] Searching AC: {ac}{sr_suffix}")
 
                 status = None
                 bill_loaded = False
@@ -1736,11 +1737,12 @@ class EBillDownloaderApp(tk.Tk):
         tk.Button(
             btn_box,
             text="ℹ About",
-            bg=BTN_SEC_BG,
-            fg=TEXT_MAIN,
-            activebackground=BTN_SEC_HOVER,
+            bg=ACCENT_ORANGE,
+            fg=TEXT_WHITE,
+            activebackground=ACCENT_ORANGE_HOVER,
+            activeforeground=TEXT_WHITE,
             relief="flat",
-            font=(UI_FONT, 8),
+            font=(UI_FONT, 8, "bold"),
             cursor="hand2",
             command=lambda: AboutDialog(self, self.active_license),
             padx=10,
@@ -1792,11 +1794,12 @@ class EBillDownloaderApp(tk.Tk):
         tk.Button(
             btn_excel_box,
             text="Template",
-            bg=BTN_SEC_BG,
-            fg=TEXT_MAIN,
-            activebackground=BTN_SEC_HOVER,
+            bg=ACCENT_BLUE,
+            fg=TEXT_WHITE,
+            activebackground=ACCENT_BLUE_HOVER,
+            activeforeground=TEXT_WHITE,
             relief="flat",
-            font=(UI_FONT, 9),
+            font=(UI_FONT, 9, "bold"),
             cursor="hand2",
             command=self._download_template,
             padx=10,
@@ -1838,22 +1841,7 @@ class EBillDownloaderApp(tk.Tk):
             padx=12,
             pady=2,
         )
-        self.btn_save_url.pack(side="left", padx=(0, 6))
-
-        self.btn_reset_url = tk.Button(
-            btn_url_box,
-            text="Reset",
-            bg=BTN_SEC_BG,
-            fg=TEXT_MAIN,
-            activebackground=BTN_SEC_HOVER,
-            relief="flat",
-            font=(UI_FONT, 9),
-            cursor="hand2",
-            command=self._reset_url,
-            padx=10,
-            pady=2,
-        )
-        self.btn_reset_url.pack(side="left")
+        self.btn_save_url.pack(side="left")
 
         # 3. Output Folder
         r3 = ttk.Frame(inputs_card, style="Card.TFrame")
@@ -1875,20 +1863,6 @@ class EBillDownloaderApp(tk.Tk):
             state="readonly",
         )
         entry_out.pack(side="left", fill="x", expand=True, padx=(4, 6), ipady=2)
-
-        tk.Button(
-            r3,
-            text="Open",
-            bg=BTN_SEC_BG,
-            fg=TEXT_MAIN,
-            activebackground=BTN_SEC_HOVER,
-            relief="flat",
-            font=(UI_FONT, 9),
-            cursor="hand2",
-            command=self._open_output_folder,
-            padx=10,
-            pady=2,
-        ).pack(side="right", padx=(6, 0))
 
         tk.Button(
             r3,
@@ -2130,8 +2104,7 @@ class EBillDownloaderApp(tk.Tk):
 
     def _append_log(self, msg: str):
         self.txt_logs.configure(state="normal")
-        ts = time.strftime("%H:%M:%S")
-        self.txt_logs.insert("end", f"[{ts}] {msg}\n")
+        self.txt_logs.insert("end", f"{msg}\n")
         self.txt_logs.see("end")
         self.txt_logs.configure(state="disabled")
 
