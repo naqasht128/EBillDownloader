@@ -1,1 +1,1 @@
-• Initial release: Batch bill downloader with A4 auto-formatting and licensing
+• Updated brand identity with new custom E-Bill Downloader app icon
