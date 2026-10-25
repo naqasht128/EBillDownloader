@@ -54,5 +54,10 @@ bill_crash.txt
 admin_config.json
 node_modules/
 
-# Admin Key Generator executable
+# Admin Key Generator & Licensing Tools (Local to Developer Machine)
 generate_key.exe
+generate_key.py
+generate_key.spec
+
+# Confidential Architectural Blueprint
+BLUEPRINT.md
