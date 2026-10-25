@@ -1608,6 +1608,7 @@ class EBillDownloaderApp(tk.Tk):
         self.stop_event = threading.Event()
         self.pause_event = threading.Event()
         self.worker_thread: threading.Thread | None = None
+        self.protocol("WM_DELETE_WINDOW", self._on_app_close)
 
         config = load_app_config()
         self.excel_var = tk.StringVar(value=config.get("last_excel", ""))
@@ -2026,7 +2027,7 @@ class EBillDownloaderApp(tk.Tk):
         ttk.Label(stats_box, text="Errors:", style="StatTitle.TLabel").grid(row=1, column=2, sticky="w", padx=(4, 2), pady=2)
         ttk.Label(stats_box, textvariable=self.err_var, style="StatErr.TLabel").grid(row=1, column=3, sticky="w", padx=(0, 4), pady=2)
 
-        # Controls & Action Buttons
+        # Controls & Action Buttons (Start/Pause combined toggle, separate Stop)
         btn_action_box = ttk.Frame(self.main_container, style="Root.TFrame")
         btn_action_box.pack(fill="x", pady=(0, 6))
 
@@ -2037,32 +2038,33 @@ class EBillDownloaderApp(tk.Tk):
             fg=TEXT_WHITE,
             activebackground=ACCENT_GREEN_HOVER,
             activeforeground=TEXT_WHITE,
+            disabledforeground=BTN_DISABLED_FG,
             relief="flat",
             font=(UI_FONT, 10, "bold"),
             cursor="hand2",
-            command=self._toggle_start_stop,
+            command=self._on_start_pause_click,
             padx=18,
             pady=5,
         )
         self.btn_start.pack(side="left", padx=(0, 8))
 
-        self.btn_pause = tk.Button(
+        self.btn_stop = tk.Button(
             btn_action_box,
-            text="⏸  PAUSE",
-            bg=ACCENT_ORANGE,
-            fg="#000000",
-            activebackground=ACCENT_ORANGE_HOVER,
-            activeforeground="#000000",
-            disabledforeground="#555555",
+            text="■  STOP DOWNLOAD",
+            bg=ACCENT_RED,
+            fg=TEXT_WHITE,
+            activebackground=ACCENT_RED_HOVER,
+            activeforeground=TEXT_WHITE,
+            disabledforeground=BTN_DISABLED_FG,
             relief="flat",
             font=(UI_FONT, 10, "bold"),
             cursor="hand2",
-            command=self._toggle_pause_resume,
+            command=self._on_stop_click,
             state="disabled",
-            padx=14,
+            padx=18,
             pady=5,
         )
-        self.btn_pause.pack(side="left")
+        self.btn_stop.pack(side="left")
 
         # Progress bar & Status line
         prog_bar_box = ttk.Frame(self.main_container, style="Root.TFrame")
@@ -2243,67 +2245,104 @@ class EBillDownloaderApp(tk.Tk):
         self.txt_logs.see("end")
         self.txt_logs.configure(state="disabled")
 
-    def _toggle_start_stop(self):
-        if self.btn_start.cget("text").startswith("▶"):
-            excel = self.excel_var.get().strip()
-            if not excel or not os.path.exists(excel):
-                messagebox.showerror("Missing Excel File", "Please select a valid Excel (.xlsx) file first.", parent=self)
-                return
+    def _on_start_pause_click(self):
+        # 1. If worker is actively running, toggle Pause / Resume
+        if self.worker_thread and self.worker_thread.is_alive():
+            if not self.pause_event.is_set():
+                # Pause worker
+                self.pause_event.set()
+                self.btn_start.configure(
+                    text="▶  RESUME",
+                    bg=ACCENT_GREEN,
+                    activebackground=ACCENT_GREEN_HOVER,
+                    activeforeground=TEXT_WHITE,
+                )
+                self.status_var.set("Worker paused.")
+                self._append_log("⏸ Worker paused.")
+            else:
+                # Resume worker
+                self.pause_event.clear()
+                self.btn_start.configure(
+                    text="⏸  PAUSE",
+                    bg=ACCENT_ORANGE,
+                    activebackground=ACCENT_ORANGE_HOVER,
+                    activeforeground=TEXT_WHITE,
+                )
+                self.status_var.set("Resuming processing...")
+                self._append_log("▶ Worker resumed.")
+            return
 
-            out = self.out_var.get().strip()
-            if not out:
-                messagebox.showerror("Missing Output Folder", "Please specify an output folder.", parent=self)
-                return
+        # 2. Worker is not running -> Start new job
+        excel = self.excel_var.get().strip()
+        if not excel or not os.path.exists(excel):
+            messagebox.showerror("Missing Excel File", "Please select a valid Excel (.xlsx) file first.", parent=self)
+            return
 
-            url = self.url_var.get().strip() or DEFAULT_URL
-            save_app_config({
-                "bills_url": url,
-                "add_sr": self.chk_sr_var.get(),
-                "separate_pdf": self.chk_sep_var.get(),
-                "headless": self.chk_headless_var.get(),
-            })
+        out = self.out_var.get().strip()
+        if not out:
+            messagebox.showerror("Missing Output Folder", "Please specify an output folder.", parent=self)
+            return
 
-            self.total_var.set("0")
-            self.ok_var.set("0")
-            self.not_found_var.set("0")
-            self.err_var.set("0")
-            self.prog_bar["value"] = 0
+        url = self.url_var.get().strip() or DEFAULT_URL
+        save_app_config({
+            "bills_url": url,
+            "add_sr": self.chk_sr_var.get(),
+            "separate_pdf": self.chk_sep_var.get(),
+            "headless": self.chk_headless_var.get() if hasattr(self, "chk_headless_var") else True,
+        })
 
-            self.stop_event.clear()
-            self.pause_event.clear()
+        self.total_var.set("0")
+        self.ok_var.set("0")
+        self.not_found_var.set("0")
+        self.err_var.set("0")
+        self.prog_bar["value"] = 0
 
-            self.btn_start.configure(text="■  STOP DOWNLOAD", bg=ACCENT_RED, activebackground=ACCENT_RED_HOVER)
-            self.btn_pause.configure(state="normal", text="⏸  PAUSE")
-            self.status_var.set("Processing bills...")
+        self.stop_event.clear()
+        self.pause_event.clear()
 
-            job = {
-                "excel_path": excel,
-                "out_folder": out,
-                "url": url,
-                "headless": True,
-                "add_sr": self.chk_sr_var.get(),
-                "separate": self.chk_sep_var.get(),
-            }
+        # Switch Start button to PAUSE
+        self.btn_start.configure(
+            text="⏸  PAUSE",
+            bg=ACCENT_ORANGE,
+            activebackground=ACCENT_ORANGE_HOVER,
+            activeforeground=TEXT_WHITE,
+            state="normal",
+        )
+        # Enable separate STOP button
+        self.btn_stop.configure(
+            state="normal",
+            text="■  STOP DOWNLOAD",
+            bg=ACCENT_RED,
+            activebackground=ACCENT_RED_HOVER,
+        )
+        self.status_var.set("Processing bills...")
 
-            engine = BillWorkerEngine(job, self.events, self.stop_event, self.pause_event)
-            self.worker_thread = threading.Thread(target=engine.run, daemon=True)
-            self.worker_thread.start()
-        else:
+        job = {
+            "excel_path": excel,
+            "out_folder": out,
+            "url": url,
+            "headless": True,
+            "add_sr": self.chk_sr_var.get(),
+            "separate": self.chk_sep_var.get(),
+        }
+
+        engine = BillWorkerEngine(job, self.events, self.stop_event, self.pause_event)
+        self.worker_thread = threading.Thread(target=engine.run, daemon=True)
+        self.worker_thread.start()
+
+    def _on_app_close(self):
+        if hasattr(self, "worker_thread") and self.worker_thread and self.worker_thread.is_alive():
             self.stop_event.set()
-            self.btn_start.configure(state="disabled", text="Stopping...")
-            self.status_var.set("Stopping background worker...")
-
-    def _toggle_pause_resume(self):
-        if self.pause_event.is_set():
             self.pause_event.clear()
-            self.btn_pause.configure(text="⏸  PAUSE")
-            self.status_var.set("Resuming processing...")
-            self._append_log("▶ Worker resumed.")
-        else:
-            self.pause_event.set()
-            self.btn_pause.configure(text="▶  RESUME")
-            self.status_var.set("Worker paused.")
-            self._append_log("⏸ Worker paused.")
+        self.destroy()
+
+    def _on_stop_click(self):
+        if self.worker_thread and self.worker_thread.is_alive():
+            self.stop_event.set()
+            self.pause_event.clear()  # Ensure unblocked so worker terminates cleanly
+            self.btn_start.configure(state="disabled")
+            self.btn_stop.configure(state="disabled", text="Stopping...")
+            self.status_var.set("Stopping background worker...")
 
     def drain_events(self):
         try:
@@ -2333,8 +2372,18 @@ class EBillDownloaderApp(tk.Tk):
             self.after(50, self.drain_events)
 
     def _on_worker_finished(self):
-        self.btn_start.configure(state="normal", text="▶  START DOWNLOAD", bg=ACCENT_GREEN, activebackground=ACCENT_GREEN_HOVER)
-        self.btn_pause.configure(state="disabled", text="⏸  PAUSE")
+        self.btn_start.configure(
+            state="normal",
+            text="▶  START DOWNLOAD",
+            bg=ACCENT_GREEN,
+            activebackground=ACCENT_GREEN_HOVER,
+            activeforeground=TEXT_WHITE,
+        )
+        self.btn_stop.configure(
+            state="disabled",
+            text="■  STOP DOWNLOAD",
+            bg=ACCENT_RED,
+        )
         self.status_var.set("Completed.")
 
         # Notification dialog
