@@ -1506,6 +1506,10 @@ class EBillDownloaderApp(tk.Tk):
         self.chk_sep_var = tk.BooleanVar(value=config.get("separate_pdf", True))
         self.chk_headless_var = tk.BooleanVar(value=config.get("headless", True))
 
+        self.total_var = tk.StringVar(value="0")
+        self.ok_var = tk.StringVar(value="0")
+        self.not_found_var = tk.StringVar(value="0")
+        self.err_var = tk.StringVar(value="0")
         self.prog_text_var = tk.StringVar(value="0 / 0 bills")
         self.stats_var = tk.StringVar(value="Saved: 0  |  Not Found: 0  |  Errors: 0")
         self.status_var = tk.StringVar(value="Ready. Select an Excel file containing Account Numbers.")
@@ -1566,6 +1570,9 @@ class EBillDownloaderApp(tk.Tk):
         self.style.configure("CardTitle.TLabel", background=CARD_BG, foreground=TEXT_WHITE, font=(UI_FONT, 9, "bold"))
         self.style.configure("StatTitle.TLabel", background=CARD_BG, foreground=TEXT_MUTED, font=(UI_FONT, 9))
         self.style.configure("StatVal.TLabel", background=CARD_BG, foreground=TEXT_WHITE, font=(UI_FONT, 9, "bold"))
+        self.style.configure("StatOk.TLabel", background=CARD_BG, foreground="#89d185", font=(UI_FONT, 9, "bold"))
+        self.style.configure("StatWarn.TLabel", background=CARD_BG, foreground="#cca700", font=(UI_FONT, 9, "bold"))
+        self.style.configure("StatErr.TLabel", background=CARD_BG, foreground="#f14c4c", font=(UI_FONT, 9, "bold"))
 
         self.style.configure(
             "TEntry",
@@ -1878,16 +1885,33 @@ class EBillDownloaderApp(tk.Tk):
             pady=2,
         ).pack(side="right")
 
-        # Options Card
-        options_card = ttk.LabelFrame(self.main_container, text="  DOWNLOAD OPTIONS  ", padding=(12, 4))
-        options_card.pack(fill="x", pady=(0, 6))
+        # Options & Progress Summary (Side-by-side mid-frame as in Bill Scrapper)
+        mid_frame = ttk.Frame(self.main_container, style="Root.TFrame")
+        mid_frame.pack(fill="x", pady=(0, 6))
 
-        opt_box = ttk.Frame(options_card, style="Card.TFrame")
-        opt_box.pack(fill="x")
+        # Left: Download Options
+        options_card = ttk.LabelFrame(mid_frame, text="  DOWNLOAD OPTIONS  ", padding=(10, 6))
+        options_card.pack(side="left", fill="both", expand=True, padx=(0, 4))
 
-        ttk.Checkbutton(opt_box, text="Add Sr. No. on Bill", variable=self.chk_sr_var).pack(side="left", padx=(0, 18))
-        ttk.Checkbutton(opt_box, text="Separate PDFs (Individual)", variable=self.chk_sep_var).pack(side="left", padx=(0, 18))
-        ttk.Checkbutton(opt_box, text="Headless Mode (Background)", variable=self.chk_headless_var).pack(side="left")
+        ttk.Checkbutton(options_card, text="Add Sr. No. on Bill", variable=self.chk_sr_var).pack(anchor="w", pady=(0, 2))
+        ttk.Checkbutton(options_card, text="Separate PDFs (Individual)", variable=self.chk_sep_var).pack(anchor="w", pady=(0, 2))
+        ttk.Checkbutton(options_card, text="Headless Mode (Background)", variable=self.chk_headless_var).pack(anchor="w")
+
+        # Right: Progress Summary
+        stats_box = ttk.LabelFrame(mid_frame, text="  PROGRESS SUMMARY  ", padding=(10, 6))
+        stats_box.pack(side="right", fill="both", expand=True, padx=(4, 0))
+
+        ttk.Label(stats_box, text="Total:", style="StatTitle.TLabel").grid(row=0, column=0, sticky="w", padx=(4, 2), pady=2)
+        ttk.Label(stats_box, textvariable=self.total_var, style="StatVal.TLabel").grid(row=0, column=1, sticky="w", padx=(0, 10), pady=2)
+
+        ttk.Label(stats_box, text="Downloaded:", style="StatTitle.TLabel").grid(row=0, column=2, sticky="w", padx=(4, 2), pady=2)
+        ttk.Label(stats_box, textvariable=self.ok_var, style="StatOk.TLabel").grid(row=0, column=3, sticky="w", padx=(0, 4), pady=2)
+
+        ttk.Label(stats_box, text="Not Found:", style="StatTitle.TLabel").grid(row=1, column=0, sticky="w", padx=(4, 2), pady=2)
+        ttk.Label(stats_box, textvariable=self.not_found_var, style="StatWarn.TLabel").grid(row=1, column=1, sticky="w", padx=(0, 10), pady=2)
+
+        ttk.Label(stats_box, text="Errors:", style="StatTitle.TLabel").grid(row=1, column=2, sticky="w", padx=(4, 2), pady=2)
+        ttk.Label(stats_box, textvariable=self.err_var, style="StatErr.TLabel").grid(row=1, column=3, sticky="w", padx=(0, 4), pady=2)
 
         # Controls & Action Buttons
         btn_action_box = ttk.Frame(self.main_container, style="Root.TFrame")
@@ -1927,17 +1951,15 @@ class EBillDownloaderApp(tk.Tk):
         )
         self.btn_pause.pack(side="left")
 
-        # Progress & Live Stats Card
-        prog_card = ttk.Frame(self.main_container, style="Card.TFrame", padding=(12, 5))
-        prog_card.pack(fill="x", pady=(0, 6))
+        # Progress bar & Status line
+        prog_bar_box = ttk.Frame(self.main_container, style="Root.TFrame")
+        prog_bar_box.pack(fill="x", pady=(0, 6))
 
-        p_row = ttk.Frame(prog_card, style="Card.TFrame")
-        p_row.pack(fill="x", pady=(0, 3))
-        ttk.Label(p_row, textvariable=self.prog_text_var, font=(UI_FONT, 10, "bold"), foreground=TEXT_WHITE).pack(side="left")
-        ttk.Label(p_row, textvariable=self.stats_var, font=(UI_FONT, 9), foreground=TEXT_MUTED).pack(side="right")
+        self.prog_bar = ttk.Progressbar(prog_bar_box, style="Green.Horizontal.TProgressbar", maximum=100)
+        self.prog_bar.pack(fill="x", ipady=2, pady=(0, 2))
 
-        self.prog_bar = ttk.Progressbar(prog_card, style="Green.Horizontal.TProgressbar", maximum=100)
-        self.prog_bar.pack(fill="x", ipady=2)
+        status_lbl = ttk.Label(prog_bar_box, textvariable=self.status_var, style="Status.TLabel")
+        status_lbl.pack(anchor="w")
 
         # Logs Card
         logs_card = ttk.LabelFrame(self.main_container, text="  EXECUTION LOGS  ", padding=(10, 5))
@@ -2128,6 +2150,12 @@ class EBillDownloaderApp(tk.Tk):
                 "headless": self.chk_headless_var.get(),
             })
 
+            self.total_var.set("0")
+            self.ok_var.set("0")
+            self.not_found_var.set("0")
+            self.err_var.set("0")
+            self.prog_bar["value"] = 0
+
             self.stop_event.clear()
             self.pause_event.clear()
 
@@ -2172,6 +2200,10 @@ class EBillDownloaderApp(tk.Tk):
                     self._append_log(payload)
                 elif msg_type == "progress":
                     cur, total, saved, not_found, errors = payload
+                    self.total_var.set(str(total))
+                    self.ok_var.set(str(saved))
+                    self.not_found_var.set(str(not_found))
+                    self.err_var.set(str(errors))
                     self.prog_text_var.set(f"{cur} / {total} bills")
                     self.stats_var.set(f"Saved: {saved}  |  Not Found: {not_found}  |  Errors: {errors}")
                     if total > 0:
