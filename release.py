@@ -189,7 +189,7 @@ def main():
     print(f"  ✔ Tag '{tag_name}' pushed to GitHub.")
 
     # 6. Optional: Register release on Vercel backend
-    api_url = os.environ.get("LICENSE_API_URL", "https://ebill-downloader.vercel.app").rstrip("/")
+    api_url = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
     admin_secret = os.environ.get("ADMIN_SECRET", "")
     if admin_secret:
         try:

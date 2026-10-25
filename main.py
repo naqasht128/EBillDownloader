@@ -42,7 +42,7 @@ APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
 APP_VERSION = "1.0.1"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
-LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://ebill-downloader.vercel.app").rstrip("/")
+LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
 SUPPORT_WHATSAPP = "https://wa.me/923339962474"
 SUPPORT_EMAIL = "mailto:tahir.naqash4@gmail.com"
@@ -574,7 +574,11 @@ class LicenseGateDialog(tk.Toplevel):
         self.title("E-Bill Downloader — License Activation")
         self.configure(bg=BG_DARK)
         self.resizable(False, False)
-        self.transient(parent)
+        try:
+            if parent and parent.state() != "withdrawn":
+                self.transient(parent)
+        except Exception:
+            pass
 
         self.activated = False
         self.license_info: dict | None = None
@@ -589,12 +593,29 @@ class LicenseGateDialog(tk.Toplevel):
         px = max(0, (sw - w) // 2)
         py = max(0, (sh - h) // 2)
         self.geometry(f"{w}x{h}+{px}+{py}")
-        set_dark_title_bar(self)
 
+        try:
+            if sys.platform == "win32":
+                icon_file = resource_path("assets/app.ico")
+                if os.path.exists(icon_file):
+                    self.iconbitmap(icon_file)
+            png_file = resource_path("assets/app.png")
+            if os.path.exists(png_file):
+                self._icon_img = tk.PhotoImage(file=png_file)
+                self.iconphoto(True, self._icon_img)
+        except Exception:
+            pass
+
+        set_dark_title_bar(self)
         self._build_ui(initial_error)
         self.update_idletasks()
         self.deiconify()
-        self.grab_set()
+        self.lift()
+        self.focus_force()
+        try:
+            self.grab_set()
+        except Exception:
+            pass
 
         self._poll_queue()
 
@@ -837,7 +858,17 @@ class LicenseGateDialog(tk.Toplevel):
         self.lbl_status.configure(foreground=ACCENT_RED)
 
     def _on_close(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
         self.destroy()
+        if self.parent:
+            try:
+                if self.parent.state() == "withdrawn":
+                    self.parent.destroy()
+            except Exception:
+                pass
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1921,7 +1952,11 @@ class EBillDownloaderApp(tk.Tk):
 # ──────────────────────────────────────────────────────────────
 def start_app():
     app = EBillDownloaderApp()
-    app.mainloop()
+    try:
+        if app.winfo_exists():
+            app.mainloop()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
