@@ -40,7 +40,7 @@ from openpyxl import load_workbook
 # ──────────────────────────────────────────────────────────────
 APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
 LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
@@ -1330,8 +1330,13 @@ class EBillDownloaderApp(tk.Tk):
         self.title("E-Bill Downloader")
         self.configure(bg=BG_DARK)
         self.resizable(True, True)
-        self.geometry("720x760")
-        self.minsize(640, 680)
+        w, h = 680, 560
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        px = max(0, (sw - w) // 2)
+        py = max(0, (sh - h) // 2)
+        self.geometry(f"{w}x{h}+{px}+{py}")
+        self.minsize(600, 460)
 
         # Application Icon
         self._icon_img = None
@@ -1578,12 +1583,12 @@ class EBillDownloaderApp(tk.Tk):
             UpdateDialog(self, self.latest_update)
 
     def build_ui(self):
-        self.main_container = ttk.Frame(self, style="Root.TFrame", padding=(18, 14, 18, 14))
+        self.main_container = ttk.Frame(self, style="Root.TFrame", padding=(16, 8, 16, 8))
         self.main_container.pack(fill="both", expand=True)
 
         # Header bar
         header_bar = ttk.Frame(self.main_container, style="Root.TFrame")
-        header_bar.pack(fill="x", pady=(0, 10))
+        header_bar.pack(fill="x", pady=(0, 6))
 
         title_box = ttk.Frame(header_bar, style="Root.TFrame")
         title_box.pack(side="left")
@@ -1608,12 +1613,12 @@ class EBillDownloaderApp(tk.Tk):
         ).pack(side="right", padx=(6, 0))
 
         # Inputs Card
-        inputs_card = ttk.LabelFrame(self.main_container, text="  INPUT CONFIGURATION  ", padding=(14, 10))
-        inputs_card.pack(fill="x", pady=(0, 10))
+        inputs_card = ttk.LabelFrame(self.main_container, text="  INPUT CONFIGURATION  ", padding=(12, 6))
+        inputs_card.pack(fill="x", pady=(0, 6))
 
         # 1. Excel File
         r1 = ttk.Frame(inputs_card, style="Card.TFrame")
-        r1.pack(fill="x", pady=4)
+        r1.pack(fill="x", pady=2)
         ttk.Label(r1, text="Excel File:", width=13).pack(side="left")
         entry_excel = tk.Entry(
             r1,
@@ -1627,7 +1632,7 @@ class EBillDownloaderApp(tk.Tk):
             highlightcolor=ACCENT_GREEN,
             state="readonly",
         )
-        entry_excel.pack(side="left", fill="x", expand=True, padx=(4, 8), ipady=3)
+        entry_excel.pack(side="left", fill="x", expand=True, padx=(4, 6), ipady=2)
         tk.Button(
             r1,
             text="Browse...",
@@ -1639,14 +1644,14 @@ class EBillDownloaderApp(tk.Tk):
             cursor="hand2",
             command=self._browse_excel,
             padx=12,
-            pady=3,
+            pady=2,
         ).pack(side="right")
 
         # 2. Bills URL
         r2 = ttk.Frame(inputs_card, style="Card.TFrame")
-        r2.pack(fill="x", pady=4)
+        r2.pack(fill="x", pady=2)
         ttk.Label(r2, text="Bills URL:", width=13).pack(side="left")
-        entry_url = tk.Entry(
+        self.entry_url = tk.Entry(
             r2,
             textvariable=self.url_var,
             bg=INPUT_BG,
@@ -1657,9 +1662,30 @@ class EBillDownloaderApp(tk.Tk):
             highlightbackground=BORDER_COLOR,
             highlightcolor=ACCENT_GREEN,
         )
-        entry_url.pack(side="left", fill="x", expand=True, padx=(4, 8), ipady=3)
-        tk.Button(
-            r2,
+        self.entry_url.pack(side="left", fill="x", expand=True, padx=(4, 6), ipady=2)
+        self.entry_url.bind("<Return>", lambda e: self._save_url())
+
+        btn_url_box = ttk.Frame(r2, style="Card.TFrame")
+        btn_url_box.pack(side="right")
+
+        self.btn_save_url = tk.Button(
+            btn_url_box,
+            text="Save",
+            bg=ACCENT_GREEN,
+            fg=TEXT_WHITE,
+            activebackground=ACCENT_GREEN_HOVER,
+            activeforeground=TEXT_WHITE,
+            relief="flat",
+            font=(UI_FONT, 9, "bold"),
+            cursor="hand2",
+            command=self._save_url,
+            padx=12,
+            pady=2,
+        )
+        self.btn_save_url.pack(side="left", padx=(0, 6))
+
+        self.btn_reset_url = tk.Button(
+            btn_url_box,
             text="Reset",
             bg=BTN_SEC_BG,
             fg=TEXT_MAIN,
@@ -1667,14 +1693,15 @@ class EBillDownloaderApp(tk.Tk):
             relief="flat",
             font=(UI_FONT, 9),
             cursor="hand2",
-            command=lambda: self.url_var.set(DEFAULT_URL),
-            padx=12,
-            pady=3,
-        ).pack(side="right")
+            command=self._reset_url,
+            padx=10,
+            pady=2,
+        )
+        self.btn_reset_url.pack(side="left")
 
         # 3. Output Folder
         r3 = ttk.Frame(inputs_card, style="Card.TFrame")
-        r3.pack(fill="x", pady=4)
+        r3.pack(fill="x", pady=2)
         ttk.Label(r3, text="Output Folder:", width=13).pack(side="left")
         entry_out = tk.Entry(
             r3,
@@ -1688,7 +1715,7 @@ class EBillDownloaderApp(tk.Tk):
             highlightcolor=ACCENT_GREEN,
             state="readonly",
         )
-        entry_out.pack(side="left", fill="x", expand=True, padx=(4, 8), ipady=3)
+        entry_out.pack(side="left", fill="x", expand=True, padx=(4, 6), ipady=2)
 
         tk.Button(
             r3,
@@ -1701,7 +1728,7 @@ class EBillDownloaderApp(tk.Tk):
             cursor="hand2",
             command=self._open_output_folder,
             padx=10,
-            pady=3,
+            pady=2,
         ).pack(side="right", padx=(6, 0))
 
         tk.Button(
@@ -1715,12 +1742,12 @@ class EBillDownloaderApp(tk.Tk):
             cursor="hand2",
             command=self._browse_output_folder,
             padx=12,
-            pady=3,
+            pady=2,
         ).pack(side="right")
 
         # Options Card
-        options_card = ttk.LabelFrame(self.main_container, text="  DOWNLOAD OPTIONS  ", padding=(14, 8))
-        options_card.pack(fill="x", pady=(0, 10))
+        options_card = ttk.LabelFrame(self.main_container, text="  DOWNLOAD OPTIONS  ", padding=(12, 4))
+        options_card.pack(fill="x", pady=(0, 6))
 
         opt_box = ttk.Frame(options_card, style="Card.TFrame")
         opt_box.pack(fill="x")
@@ -1731,7 +1758,7 @@ class EBillDownloaderApp(tk.Tk):
 
         # Controls & Action Buttons
         btn_action_box = ttk.Frame(self.main_container, style="Root.TFrame")
-        btn_action_box.pack(fill="x", pady=(0, 10))
+        btn_action_box.pack(fill="x", pady=(0, 6))
 
         self.btn_start = tk.Button(
             btn_action_box,
@@ -1744,10 +1771,10 @@ class EBillDownloaderApp(tk.Tk):
             font=(UI_FONT, 10, "bold"),
             cursor="hand2",
             command=self._toggle_start_stop,
-            padx=20,
-            pady=7,
+            padx=18,
+            pady=5,
         )
-        self.btn_start.pack(side="left", padx=(0, 10))
+        self.btn_start.pack(side="left", padx=(0, 8))
 
         self.btn_pause = tk.Button(
             btn_action_box,
@@ -1761,17 +1788,17 @@ class EBillDownloaderApp(tk.Tk):
             cursor="hand2",
             command=self._toggle_pause_resume,
             state="disabled",
-            padx=16,
-            pady=7,
+            padx=14,
+            pady=5,
         )
         self.btn_pause.pack(side="left")
 
         # Progress & Live Stats Card
-        prog_card = ttk.Frame(self.main_container, style="Card.TFrame", padding=(14, 10))
-        prog_card.pack(fill="x", pady=(0, 10))
+        prog_card = ttk.Frame(self.main_container, style="Card.TFrame", padding=(12, 5))
+        prog_card.pack(fill="x", pady=(0, 6))
 
         p_row = ttk.Frame(prog_card, style="Card.TFrame")
-        p_row.pack(fill="x", pady=(0, 4))
+        p_row.pack(fill="x", pady=(0, 3))
         ttk.Label(p_row, textvariable=self.prog_text_var, font=(UI_FONT, 10, "bold"), foreground=TEXT_WHITE).pack(side="left")
         ttk.Label(p_row, textvariable=self.stats_var, font=(UI_FONT, 9), foreground=TEXT_MUTED).pack(side="right")
 
@@ -1779,11 +1806,11 @@ class EBillDownloaderApp(tk.Tk):
         self.prog_bar.pack(fill="x", ipady=2)
 
         # Logs Card
-        logs_card = ttk.LabelFrame(self.main_container, text="  EXECUTION LOGS  ", padding=(12, 8))
-        logs_card.pack(fill="both", expand=True, pady=(0, 10))
+        logs_card = ttk.LabelFrame(self.main_container, text="  EXECUTION LOGS  ", padding=(10, 5))
+        logs_card.pack(fill="both", expand=True, pady=(0, 6))
 
         log_top = ttk.Frame(logs_card, style="Card.TFrame")
-        log_top.pack(fill="x", pady=(0, 4))
+        log_top.pack(fill="x", pady=(0, 3))
         ttk.Label(log_top, text="Real-time activity and network status:", font=(UI_FONT, 8), foreground=TEXT_MUTED).pack(side="left")
         tk.Button(
             log_top,
@@ -1807,6 +1834,7 @@ class EBillDownloaderApp(tk.Tk):
             relief="flat",
             wrap="word",
             state="disabled",
+            height=6,
         )
         self.txt_logs.pack(fill="both", expand=True)
 
@@ -1814,6 +1842,25 @@ class EBillDownloaderApp(tk.Tk):
         status_bar = ttk.Frame(self.main_container, style="Root.TFrame")
         status_bar.pack(fill="x")
         ttk.Label(status_bar, textvariable=self.status_var, style="Sub.TLabel").pack(side="left")
+
+    def _save_url(self):
+        url = self.url_var.get().strip()
+        if not url:
+            url = DEFAULT_URL
+            self.url_var.set(url)
+        save_app_config({"bills_url": url})
+        self.status_var.set(f"Bills URL saved: {url}")
+        if hasattr(self, "btn_save_url"):
+            self.btn_save_url.configure(text="✔ Saved", bg="#2ea043")
+            self.after(1500, lambda: self.btn_save_url.configure(text="Save", bg=ACCENT_GREEN) if self.winfo_exists() and self.btn_save_url.winfo_exists() else None)
+
+    def _reset_url(self):
+        self.url_var.set(DEFAULT_URL)
+        save_app_config({"bills_url": DEFAULT_URL})
+        self.status_var.set("Bills URL reset to default.")
+        if hasattr(self, "btn_save_url"):
+            self.btn_save_url.configure(text="✔ Saved", bg="#2ea043")
+            self.after(1500, lambda: self.btn_save_url.configure(text="Save", bg=ACCENT_GREEN) if self.winfo_exists() and self.btn_save_url.winfo_exists() else None)
 
     def _browse_excel(self):
         path = filedialog.askopenfilename(

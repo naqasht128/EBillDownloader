@@ -1,1 +1,1 @@
-• Fix LicenseGateDialog visibility on startup and fix backend URL
+• Add Save button for Bills URL and optimize vertical window dimensions
