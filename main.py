@@ -990,7 +990,7 @@ class AboutDialog(tk.Toplevel):
             except Exception:
                 pass
 
-        w, h = 480, 420
+        w, h = 480, 360
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
         px = max(0, (sw - w) // 2)
@@ -1008,7 +1008,7 @@ class AboutDialog(tk.Toplevel):
         lic_card = ttk.Frame(container, style="Card.TFrame", padding=(14, 12))
         lic_card.pack(fill="x", pady=(0, 12))
 
-        ttk.Label(lic_card, text="SUBSCRIPTION & DEVICE DETAILS", font=(UI_FONT, 8, "bold"), foreground=TEXT_MUTED).pack(anchor="w", pady=(0, 6))
+        ttk.Label(lic_card, text="SUBSCRIPTION DETAILS", font=(UI_FONT, 8, "bold"), foreground=TEXT_MUTED).pack(anchor="w", pady=(0, 6))
 
         plan = format_plan_label(license_info.get("plan_type") if license_info else None)
         exp = format_expiry_date(license_info.get("expires_at") if license_info else None)
@@ -1018,7 +1018,6 @@ class AboutDialog(tk.Toplevel):
             ("Subscription Plan:", plan),
             ("Serial Key:", s_key),
             ("Expires At:", exp),
-            ("Hardware ID:", get_device_id()),
         ]
 
         for k, v in details:
@@ -1027,7 +1026,23 @@ class AboutDialog(tk.Toplevel):
             ttk.Label(r, text=k, font=(UI_FONT, 8), foreground=TEXT_MUTED, width=16).pack(side="left")
             ttk.Label(r, text=v, font=(UI_FONT, 8, "bold"), foreground=TEXT_WHITE).pack(side="left", fill="x", expand=True)
             if k == "Serial Key:":
-                tk.Button(
+                self.copy_key_btn = tk.Button(
+                    r,
+                    text="📋 Copy",
+                    bg=BTN_SEC_BG,
+                    fg=TEXT_MAIN,
+                    activebackground=BTN_SEC_HOVER,
+                    activeforeground=TEXT_WHITE,
+                    font=(UI_FONT, 8),
+                    relief="flat",
+                    cursor="hand2",
+                    padx=8,
+                    pady=1,
+                    command=self._copy_serial_key,
+                )
+                self.copy_key_btn.pack(side="right")
+
+                self.change_key_btn = tk.Button(
                     r,
                     text="🔑 Change Key",
                     bg=BTN_SEC_BG,
@@ -1040,7 +1055,8 @@ class AboutDialog(tk.Toplevel):
                     padx=8,
                     pady=1,
                     command=self._change_serial_key,
-                ).pack(side="right")
+                )
+                self.change_key_btn.pack(side="right", padx=(0, 6))
 
         # Support card
         sup_card = ttk.Frame(container, style="Card.TFrame", padding=(14, 12))
@@ -1066,22 +1082,6 @@ class AboutDialog(tk.Toplevel):
         )
         self.btn_check_update.pack(side="left")
 
-        self.btn_change_key = tk.Button(
-            btn_box,
-            text="🔑  Change Key",
-            bg=BTN_SEC_BG,
-            fg=TEXT_WHITE,
-            activebackground=BTN_SEC_HOVER,
-            activeforeground=TEXT_WHITE,
-            relief="flat",
-            font=(UI_FONT, 9, "bold"),
-            command=self._change_serial_key,
-            padx=12,
-            pady=4,
-            cursor="hand2"
-        )
-        self.btn_change_key.pack(side="left", padx=(8, 0))
-
         tk.Button(
             btn_box,
             text="Close",
@@ -1096,6 +1096,15 @@ class AboutDialog(tk.Toplevel):
         ).pack(side="right")
 
         self.grab_set()
+
+    def _copy_serial_key(self):
+        lic = getattr(self.parent, "active_license", None) or self.license_info or load_local_license()
+        key = lic.get("serial_key", "") if lic else ""
+        if key and key != "Not Activated":
+            self.clipboard_clear()
+            self.clipboard_append(key)
+            self.copy_key_btn.configure(text="✔ Copied!", fg="#89d185")
+            self.after(2000, lambda: self.copy_key_btn.configure(text="📋 Copy", fg=TEXT_MAIN) if self.winfo_exists() and hasattr(self, "copy_key_btn") and self.copy_key_btn.winfo_exists() else None)
 
     def _change_serial_key(self):
         parent = self.parent
