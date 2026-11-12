@@ -1,1 +1,1 @@
-• Dynamic Start/Pause toggle button with resume and separate Stop button
+• Remove hardcoded pricing from UI

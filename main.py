@@ -40,7 +40,7 @@ from openpyxl import load_workbook
 # ──────────────────────────────────────────────────────────────
 APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
-APP_VERSION = "1.0.10"
+APP_VERSION = "1.0.11"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
 LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
@@ -853,28 +853,29 @@ class LicenseGateDialog(tk.Toplevel):
         self.lbl_status.pack(anchor="w", pady=(4, 0))
 
     def _build_buy_tab(self):
-        plans_frame = ttk.Frame(self.tab_buy, style="Root.TFrame")
-        plans_frame.pack(fill="both", expand=True)
+        # 1. Official Pricing on Website Card
+        web_card = ttk.Frame(self.tab_buy, style="Card.TFrame", padding=(14, 12))
+        web_card.pack(fill="x", pady=(0, 10))
 
-        plans = [
-            ("1 Month Subscription", "Rs. 300", "30 Days Validity  •  1 Single Device"),
-            ("3 Months Subscription", "Rs. 700", "90 Days Validity  •  Up to 2 Devices"),
-            ("6 Months Subscription", "Rs. 1,200", "180 Days Validity  •  Up to 2 Devices"),
-            ("1 Year Subscription (Best Value)", "Rs. 2,000", "365 Days Validity  •  Up to 2 Devices"),
-        ]
+        ttk.Label(web_card, text="OFFICIAL SUBSCRIPTION & PRICING", font=(UI_FONT, 9, "bold"), foreground=TEXT_WHITE).pack(anchor="w")
+        ttk.Label(web_card, text="View official, up-to-date subscription tiers and feature details directly on our website.", font=(UI_FONT, 8), foreground=TEXT_MUTED).pack(anchor="w", pady=(2, 8))
 
-        for title, price, subtitle in plans:
-            card = ttk.Frame(plans_frame, style="Card.TFrame", padding=(12, 8))
-            card.pack(fill="x", pady=3)
-            row = ttk.Frame(card, style="Card.TFrame")
-            row.pack(fill="x")
-            ttk.Label(row, text=title, font=(UI_FONT, 9, "bold"), foreground=TEXT_WHITE).pack(side="left")
-            ttk.Label(row, text=price, font=(UI_FONT, 9, "bold"), foreground="#89d185").pack(side="right")
-            ttk.Label(card, text=subtitle, font=(UI_FONT, 8), foreground=TEXT_MUTED).pack(anchor="w", pady=(2, 0))
+        tk.Button(
+            web_card,
+            text="🌐  View Live Plans & Pricing on Official Website",
+            bg=BTN_SEC_BG,
+            fg=TEXT_WHITE,
+            activebackground=BTN_SEC_HOVER,
+            relief="flat",
+            font=(UI_FONT, 9, "bold"),
+            cursor="hand2",
+            command=lambda: webbrowser.open("https://pit-csuite.vercel.app/details.html?tool=e-bills-downloader"),
+            pady=6,
+        ).pack(fill="x")
 
-        # WhatsApp CTA Card
+        # 2. WhatsApp CTA Card
         cta = ttk.Frame(self.tab_buy, style="Card.TFrame", padding=(14, 12))
-        cta.pack(fill="x", pady=(10, 0))
+        cta.pack(fill="x", pady=(0, 0))
 
         ttk.Label(cta, text="Contact Developer for Instant Activation:", font=(UI_FONT, 9, "bold"), foreground=TEXT_WHITE).pack(anchor="w")
         ttk.Label(cta, text="Send your payment receipt and HWID on WhatsApp to receive your serial key.", font=(UI_FONT, 8), foreground=TEXT_MUTED).pack(anchor="w", pady=(2, 8))
