@@ -109,8 +109,12 @@ def update_installer_version(new_version: str):
 def generate_release_notes_file(new_version: str, msg: str):
     """Write clean RELEASE_NOTES.md so GitHub Releases does not insert compare links."""
     rn_file = ROOT_DIR / "RELEASE_NOTES.md"
+    if rn_file.exists() and rn_file.read_text(encoding="utf-8").strip():
+        print("  ✔ Using existing RELEASE_NOTES.md")
+        return
     if msg and msg != f"Release v{new_version}":
-        content = f"• {msg}"
+        lines = [line.strip() for line in msg.splitlines() if line.strip()]
+        content = "\n".join(f"• {l.lstrip('•-* ')}" for l in lines)
     else:
         content = f"• Release v{new_version}: Performance improvements and stability updates"
     rn_file.write_text(content, encoding="utf-8")
