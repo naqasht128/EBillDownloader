@@ -1368,6 +1368,10 @@ class BillWorkerEngine:
                 driver = webdriver.Chrome(service=Service(driver_path), options=opts)
             except Exception:
                 driver = webdriver.Chrome(options=opts)
+            try:
+                driver.set_window_size(1920, 1080)
+            except Exception:
+                pass
         except Exception as e:
             self.log(f"❌ Failed to start Chrome Driver: {e}")
             return
