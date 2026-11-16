@@ -394,28 +394,22 @@ app.get('/api/updates/latest', async (req, res) => {
       }
 
       const ghUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
-      const ghRes = await fetch(ghUrl, { headers: ghHeaders });
+      let ghRes = await fetch(ghUrl, { headers: ghHeaders });
+
+      // If authenticated fetch failed (e.g. expired/invalid token), retry anonymously
+      if (!ghRes.ok && GITHUB_TOKEN) {
+        delete ghHeaders['Authorization'];
+        ghRes = await fetch(ghUrl, { headers: ghHeaders });
+      }
 
       if (ghRes.ok) {
         const data = await ghRes.json();
         const tag = (data.tag_name || '').replace(/^v/, '');
         const assets = data.assets || [];
 
-        const isWin7 = (req.query.os || '').toLowerCase() === 'win7' || (req.headers['user-agent'] || '').toLowerCase().includes('windows nt 6.1');
-
-        let setupAsset;
-        if (isWin7) {
-          setupAsset = assets.find(a => a.name.toLowerCase().includes('win7') && a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
-            || assets.find(a => a.name.toLowerCase().includes('win7') && a.name.toLowerCase().endsWith('.exe'));
-        } else {
-          setupAsset = assets.find(a => !a.name.toLowerCase().includes('win7') && a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
-            || assets.find(a => !a.name.toLowerCase().includes('win7') && a.name.toLowerCase().endsWith('.exe'));
-        }
-
-        if (!setupAsset) {
-          setupAsset = assets.find(a => a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
-            || assets.find(a => a.name.toLowerCase().endsWith('.exe'));
-        }
+        // Find setup or installer asset
+        const setupAsset = assets.find(a => a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
+          || assets.find(a => a.name.toLowerCase().endsWith('.exe'));
 
         if (setupAsset) {
           const host = req.get('host');
@@ -476,42 +470,60 @@ app.get('/api/updates/download', async (req, res) => {
     const { asset_id } = req.query;
 
     if (asset_id && GITHUB_TOKEN) {
-      const assetUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/assets/${asset_id}`;
-      const ghRes = await fetch(assetUrl, {
-        headers: {
-          'User-Agent': 'EBillDownloader-LicenseServer',
-          'Authorization': `Bearer ${GITHUB_TOKEN}`,
-          'Accept': 'application/octet-stream'
-        },
-        redirect: 'follow'
-      });
+      try {
+        const assetUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/assets/${asset_id}`;
+        const ghRes = await fetch(assetUrl, {
+          headers: {
+            'User-Agent': 'EBillDownloader-LicenseServer',
+            'Authorization': `Bearer ${GITHUB_TOKEN}`,
+            'Accept': 'application/octet-stream'
+          },
+          redirect: 'follow'
+        });
 
-      if (!ghRes.ok) {
-        return res.status(ghRes.status).send('Failed to fetch update asset from storage.');
+        if (ghRes.ok) {
+          const contentType = ghRes.headers.get('content-type') || 'application/octet-stream';
+          const arrayBuffer = await ghRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Length', buffer.length);
+          res.setHeader('Cache-Control', 'no-transform, public, max-age=300');
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Content-Disposition', 'attachment; filename="EBillDownloader-Setup.exe"');
+
+          return res.send(buffer);
+        }
+      } catch (proxyErr) {
+        console.warn('[DOWNLOAD PROXY WARN]', proxyErr.message);
       }
-
-      const contentType = ghRes.headers.get('content-type') || 'application/octet-stream';
-      const arrayBuffer = await ghRes.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      res.setHeader('Content-Type', contentType);
-      res.setHeader('Content-Length', buffer.length);
-      res.setHeader('Cache-Control', 'no-transform, public, max-age=300');
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Content-Disposition', 'attachment; filename="EBillDownloader-Setup.exe"');
-
-      return res.send(buffer);
     }
 
-    const directUrl = process.env.LATEST_DOWNLOAD_URL;
-    if (directUrl) {
-      return res.redirect(directUrl);
+    // Direct redirect to GitHub Release download URL
+    try {
+      const ghUrl = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+      const ghRes = await fetch(ghUrl, {
+        headers: { 'User-Agent': 'EBillDownloader-LicenseServer', 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (ghRes.ok) {
+        const data = await ghRes.json();
+        const assets = data.assets || [];
+        const setupAsset = (asset_id ? assets.find(a => String(a.id) === String(asset_id)) : null)
+          || assets.find(a => a.name.toLowerCase().includes('setup') && a.name.toLowerCase().endsWith('.exe'))
+          || assets.find(a => a.name.toLowerCase().endsWith('.exe'));
+        if (setupAsset && setupAsset.browser_download_url) {
+          return res.redirect(302, setupAsset.browser_download_url);
+        }
+      }
+    } catch (redirectErr) {
+      console.warn('[DOWNLOAD REDIRECT WARN]', redirectErr.message);
     }
 
-    return res.status(404).send('Download file not found.');
+    const directUrl = process.env.LATEST_DOWNLOAD_URL || `https://github.com/${GITHUB_REPO}/releases/latest/download/EBillDownloader-Setup.exe`;
+    return res.redirect(302, directUrl);
   } catch (err) {
     console.error('[DOWNLOAD PROXY ERROR]', err);
-    return res.status(500).send('Error downloading update file.');
+    return res.redirect(302, `https://github.com/${GITHUB_REPO}/releases/latest/download/EBillDownloader-Setup.exe`);
   }
 });
 

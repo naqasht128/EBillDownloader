@@ -9,14 +9,24 @@ for pyd_path in glob.glob('*.pyd'):
 
 entry_script = 'launcher.py' if os.path.exists('launcher.py') else 'main.py'
 
+from PyInstaller.utils.hooks import collect_data_files
+
+ddddocr_datas = []
+try:
+    ddddocr_datas = collect_data_files('ddddocr')
+except Exception:
+    pass
+
 a = Analysis(
     [entry_script],
     pathex=[],
     binaries=compiled_binaries,
-    datas=[('assets', 'assets')],
+    datas=[('assets', 'assets')] + ddddocr_datas,
     hiddenimports=[
         'openpyxl',
         'requests',
+        'ddddocr',
+        'onnxruntime',
         'selenium',
         'selenium.webdriver',
         'selenium.webdriver.chrome',

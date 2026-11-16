@@ -63,70 +63,9 @@ jobs:
           name: EBillDownloader-Windows-Setup
           path: dist/EBillDownloader-Setup.exe
 
-  build-windows-7:
-    name: Build Windows 7 / Legacy (.exe)
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.8 (32-bit x86 for max Windows 7 compatibility)
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.8'
-          architecture: 'x86'
-
-      - name: Set up MSVC Environment (x86)
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x86
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller nuitka
-
-      - name: Compile Proprietary Modules with Nuitka (C++ Binary Protection)
-        shell: pwsh
-        env:
-          PYTHONIOENCODING: "utf-8"
-        run: |
-          python scripts/compile_nuitka.py
-
-      - name: Build Windows Executable
-        run: pyinstaller EBillDownloader.spec --clean
-
-      - name: Download VC++ 2015-2022 Redistributable (x86) for bundling
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path redist
-          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x86.exe" -OutFile "redist/vc_redist.x86.exe"
-
-      - name: Build Windows 7 Setup Installer (Inno Setup)
-        shell: pwsh
-        run: |
-          $ver = "${{ github.ref_type == 'tag' && github.ref_name || '1.0.0' }}".TrimStart("v")
-          if (Test-Path "C:\Program Files (x86)\Inno Setup 6\iscc.exe") {
-              $isccPath = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
-          } elseif (Test-Path "C:\Program Files\Inno Setup 6\iscc.exe") {
-              $isccPath = "C:\Program Files\Inno Setup 6\iscc.exe"
-          } elseif (Get-Command iscc -ErrorAction SilentlyContinue) {
-              $isccPath = (Get-Command iscc).Source
-          } else {
-              choco install innosetup --no-progress -y
-              $isccPath = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
-          }
-          & $isccPath "/DAppVersion=$ver" "/DOutputBaseFilename=EBillDownloader-Win7-Setup" "/DIncludeVCRedist=1" installer.iss
-
-      - name: Upload Windows 7 Setup Installer Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: EBillDownloader-Windows7-Setup
-          path: dist/EBillDownloader-Win7-Setup.exe
-
   release:
     name: Publish GitHub Release
-    needs: [build-windows-exe, build-windows-7]
+    needs: [build-windows-exe]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name != '')
     permissions:
@@ -141,19 +80,12 @@ jobs:
           name: EBillDownloader-Windows-Setup
           path: release-assets/
 
-      - name: Download Windows 7 Setup Installer Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: EBillDownloader-Windows7-Setup
-          path: release-assets/
-
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.tag_name }}
           files: |
             release-assets/EBillDownloader-Setup.exe
-            release-assets/EBillDownloader-Win7-Setup.exe
           draft: false
           body_path: RELEASE_NOTES.md
           generate_release_notes: false

@@ -47,6 +47,18 @@ UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
 SUPPORT_WHATSAPP = "https://wa.me/923339962474"
 SUPPORT_EMAIL = "mailto:tahir.naqash4@gmail.com"
 
+_ocr_instance = None
+def get_ocr():
+    global _ocr_instance
+    if _ocr_instance is None:
+        try:
+            import ddddocr
+            _ocr_instance = ddddocr.DdddOcr(show_ad=False)
+        except Exception as exc:
+            print(f"Warning: Failed to initialize ddddocr: {exc}")
+            _ocr_instance = False
+    return _ocr_instance if _ocr_instance else None
+
 # VS Code Dark+ Palette
 BG_DARK = "#1e1e1e"
 CARD_BG = "#252526"
@@ -1455,6 +1467,23 @@ class BillWorkerEngine:
                         box = wait.until(EC.element_to_be_clickable((By.ID, "searchTextBox")))
                         box.clear()
                         box.send_keys(ac)
+
+                        # Solve CAPTCHA if present on page
+                        try:
+                            captcha_imgs = driver.find_elements(By.CSS_SELECTOR, "img[src*='CaptchaImageHandler'], img#captchaImage, img#Image1")
+                            captcha_inputs = driver.find_elements(By.CSS_SELECTOR, "input#captchaInput, input[name*='captcha' i]")
+                            if captcha_imgs and captcha_inputs and captcha_imgs[0].is_displayed() and captcha_inputs[0].is_displayed():
+                                ocr = get_ocr()
+                                if ocr:
+                                    img_bytes = captcha_imgs[0].screenshot_as_png
+                                    code = ocr.classification(img_bytes).strip()
+                                    captcha_inputs[0].clear()
+                                    captcha_inputs[0].send_keys(code)
+                                    self.log(f"Solved CAPTCHA: {code}")
+                                    time.sleep(0.3)
+                        except Exception:
+                            pass
+
                         clicked_at = time.time()
                         driver.find_element(By.ID, "btnSearch").click()
 

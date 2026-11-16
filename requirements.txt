@@ -5,3 +5,4 @@ webdriver-manager>=4.0.0
 pypdf>=3.17.0
 PyMuPDF>=1.23.0
 beautifulsoup4>=4.11.0
+ddddocr>=1.6.1
