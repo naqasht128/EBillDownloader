@@ -1353,6 +1353,7 @@ class BillWorkerEngine:
 
         self.log(f"🚀 Initializing Chrome Web Driver (Headless: {headless})...")
         opts = ChromeOptions()
+        opts.add_argument("--window-size=1920,1080")
         if headless:
             opts.add_argument("--headless=new")
         opts.add_argument("--disable-gpu")
@@ -1379,7 +1380,7 @@ class BillWorkerEngine:
         collected: list[tuple[int, str]] = []
 
         WAIT = 12
-        MAX_ATTEMPTS = 3
+        MAX_ATTEMPTS = 5
         MIN_RENDER_WAIT = 5
 
         def page_text():
@@ -1391,6 +1392,8 @@ class BillWorkerEngine:
         def bill_state(ac_no):
             text = page_text()
             text_l = text.lower()
+            if "invalid captcha" in text_l or "captcha code" in text_l:
+                return "captcha_invalid"
             if "bill not found" in text_l:
                 return "not_found"
             if "does not belongs" in text_l:
@@ -1472,7 +1475,9 @@ class BillWorkerEngine:
                         try:
                             captcha_imgs = driver.find_elements(By.CSS_SELECTOR, "img[src*='CaptchaImageHandler'], img#captchaImage, img#Image1")
                             captcha_inputs = driver.find_elements(By.CSS_SELECTOR, "input#captchaInput, input[name*='captcha' i]")
-                            if captcha_imgs and captcha_inputs and captcha_imgs[0].is_displayed() and captcha_inputs[0].is_displayed():
+                            if captcha_imgs and captcha_inputs:
+                                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", captcha_imgs[0])
+                                time.sleep(0.3)
                                 ocr = get_ocr()
                                 if ocr:
                                     img_bytes = captcha_imgs[0].screenshot_as_png
@@ -1481,11 +1486,19 @@ class BillWorkerEngine:
                                     captcha_inputs[0].send_keys(code)
                                     self.log(f"Solved CAPTCHA: {code}")
                                     time.sleep(0.3)
-                        except Exception:
-                            pass
+                                else:
+                                    self.log("Warning: ddddocr is not available. Please install ddddocr.")
+                        except Exception as e:
+                            self.log(f"CAPTCHA solver error: {e}")
 
+                        search_btn = driver.find_element(By.ID, "btnSearch")
+                        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", search_btn)
+                        time.sleep(0.3)
                         clicked_at = time.time()
-                        driver.find_element(By.ID, "btnSearch").click()
+                        try:
+                            search_btn.click()
+                        except Exception:
+                            driver.execute_script("arguments[0].click();", search_btn)
 
                         end = clicked_at + WAIT
                         state = "loading"
@@ -1496,6 +1509,10 @@ class BillWorkerEngine:
                             if state != "loading":
                                 break
                             time.sleep(0.5)
+
+                        if state == "captcha_invalid":
+                            self.log(f"[{ac}] Portal reported invalid CAPTCHA on attempt {attempt}/{MAX_ATTEMPTS}. Retrying...")
+                            continue
                     except TimeoutException:
                         state = "loading"
 
