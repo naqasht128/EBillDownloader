@@ -3,13 +3,23 @@
 Bootstraps the application by delegating directly to the compiled native binary module (main.pyd).
 """
 
+import os
 import sys
+import warnings
+
+# Suppress PyMuPDF layout recommendation and fitz deprecation warning
+os.environ.setdefault("PYMUPDF_SUGGEST_LAYOUT_ANALYZER", "0")
+sys.modules.setdefault("pymupdf.layout", None)
+warnings.filterwarnings("ignore", message=r".*The `fitz` API is deprecated.*")
 
 # Ensure PyInstaller's static scanner includes all dynamic runtime dependencies required by main.pyd
 if False:
     import openpyxl
     import requests
-    import fitz
+    try:
+        import pymupdf as fitz
+    except ImportError:
+        import fitz
     import pypdf
     import selenium
     import selenium.webdriver

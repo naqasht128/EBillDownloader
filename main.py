@@ -23,9 +23,15 @@ import time
 import tkinter as tk
 import uuid
 import webbrowser
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+
+# Suppress PyMuPDF layout recommendation and fitz deprecation warning
+os.environ.setdefault("PYMUPDF_SUGGEST_LAYOUT_ANALYZER", "0")
+sys.modules.setdefault("pymupdf.layout", None)
+warnings.filterwarnings("ignore", message=r".*The `fitz` API is deprecated.*")
 
 try:
     import winreg
@@ -1241,7 +1247,10 @@ class BillWorkerEngine:
     def _fit_pdf_to_a4(self, pdf_path: str, sr: str | None = None):
         """Scale and center captured PDF bill onto standard A4 page with optional Sr No stamp."""
         sys.modules.setdefault("pymupdf.layout", None)
-        import fitz
+        try:
+            import pymupdf as fitz
+        except ImportError:
+            import fitz
 
         src = fitz.open(pdf_path)
         if not src.page_count:
@@ -1359,7 +1368,19 @@ class BillWorkerEngine:
         opts.add_argument("--disable-gpu")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
+        opts.add_argument("--disable-notifications")
+        opts.add_argument("--disable-session-crashed-bubble")
+        opts.add_argument("--hide-crash-restore-bubble")
+        opts.add_argument("--disable-infobars")
+        opts.add_argument("--noerrdialogs")
         opts.add_argument("--log-level=3")
+        opts.add_experimental_option("prefs", {
+            "profile.exit_type": "Normal",
+            "profile.exited_cleanly": True,
+            "exit_type": "Normal",
+            "exited_cleanly": True,
+            "session.restore_on_startup": 4,
+        })
 
         driver = None
         try:

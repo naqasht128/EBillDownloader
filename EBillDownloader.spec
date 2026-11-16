@@ -52,6 +52,7 @@ a = Analysis(
         'webdriver_manager.core.driver_cache_manager',
         'webdriver_manager.core.logger',
         'pypdf',
+        'pymupdf',
         'fitz',
         'main'
     ],
