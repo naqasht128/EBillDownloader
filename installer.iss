@@ -49,13 +49,16 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
-[Files]
-Source: "dist\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
-
 [InstallDelete]
+; Clean up previous monolithic onefile executable when upgrading
+Type: files; Name: "{app}\{#AppExeName}"
 Type: files; Name: "{autodesktop}\{#AppName}.lnk"
 Type: files; Name: "{autoprograms}\{#AppName}.lnk"
+
+[Files]
+; The modern onedir distribution built by PyInstaller
+Source: "dist\EBillDownloader\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\assets\app.ico"

@@ -33,6 +33,10 @@ os.environ.setdefault("PYMUPDF_SUGGEST_LAYOUT_ANALYZER", "0")
 sys.modules.setdefault("pymupdf.layout", None)
 warnings.filterwarnings("ignore", message=r".*The `fitz` API is deprecated.*")
 
+# Lightweight cv2 stub to prevent ddddocr 1.6.1 from importing 118MB OpenCV
+import types
+sys.modules.setdefault("cv2", types.ModuleType("cv2"))
+
 try:
     import winreg
 except ImportError:
@@ -1482,7 +1486,7 @@ class BillWorkerEngine:
                 ac = str(ac).strip()
                 sr_str = str(sr).strip() if sr is not None else ""
                 sr_suffix = f" (Sr: {sr_str})" if sr_str and sr_str.upper() != "N/A" else ""
-                self.log(f"[{done + 1}/{total}] Searching AC: {ac}{sr_suffix}")
+                self.log(f"{done + 1}/{total}: Processing {ac}{sr_suffix}")
 
                 status = None
                 bill_loaded = False
