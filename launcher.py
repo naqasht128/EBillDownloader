@@ -7,6 +7,16 @@ import os
 import sys
 import warnings
 
+# Ensure UTF-8 output streams on Windows
+if sys.platform == "win32":
+    try:
+        if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Suppress PyMuPDF layout recommendation and fitz deprecation warning
 os.environ.setdefault("PYMUPDF_SUGGEST_LAYOUT_ANALYZER", "0")
 sys.modules.setdefault("pymupdf.layout", None)

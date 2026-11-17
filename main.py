@@ -33,6 +33,16 @@ os.environ.setdefault("PYMUPDF_SUGGEST_LAYOUT_ANALYZER", "0")
 sys.modules.setdefault("pymupdf.layout", None)
 warnings.filterwarnings("ignore", message=r".*The `fitz` API is deprecated.*")
 
+# Reconfigure stdout/stderr to utf-8 on Windows to prevent charmap encoding errors
+if sys.platform == "win32":
+    try:
+        if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Lightweight cv2 stub to prevent ddddocr 1.6.1 from importing 118MB OpenCV
 import types
 sys.modules.setdefault("cv2", types.ModuleType("cv2"))
@@ -50,7 +60,7 @@ from openpyxl import load_workbook
 # ──────────────────────────────────────────────────────────────
 APP_NAME = "EBillDownloader"
 APP_TITLE = "E-Bill Downloader"
-APP_VERSION = "1.0.13"
+APP_VERSION = "1.0.14"
 DEFAULT_URL = "https://bill.pitc.com.pk/pescobill"
 LICENSE_API_URL = os.environ.get("LICENSE_API_URL", "https://e-bill-downloader.vercel.app").rstrip("/")
 UPDATE_API_URL = f"{LICENSE_API_URL}/api/updates/latest"
@@ -63,9 +73,16 @@ def get_ocr():
     if _ocr_instance is None:
         try:
             import ddddocr
-            _ocr_instance = ddddocr.DdddOcr(show_ad=False)
+            try:
+                _ocr_instance = ddddocr.DdddOcr(show_ad=False)
+            except Exception:
+                # Fallback to beta model if common_old.onnx is missing or fails
+                _ocr_instance = ddddocr.DdddOcr(beta=True, show_ad=False)
         except Exception as exc:
-            print(f"Warning: Failed to initialize ddddocr: {exc}")
+            try:
+                print(f"Warning: Failed to initialize ddddocr: {exc}")
+            except Exception:
+                pass
             _ocr_instance = False
     return _ocr_instance if _ocr_instance else None
 
